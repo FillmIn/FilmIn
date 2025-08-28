@@ -1,0 +1,25 @@
+
+# Flutter/Dart 빌드 결과물
+build/
+.dart_tool/
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# VSCode
+.vscode/
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# macOS
+.DS_Store
+
+# FVM Version Cache
+.fvm/
+.fvm/flutter_sdk
+
+#API keys
+.env
+.env.*
