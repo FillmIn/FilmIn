@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void dlog(Object? message, [StackTrace? stack]) {
   if (kDebugMode || kProfileMode) {
     final time = DateTime.now().toIso8601String();
-    debugPrint('[FILMIN][${time}] $message');
+    debugPrint('[🎞️ FILMIN][${time}] $message');
     if (stack != null) debugPrint(stack.toString());
   }
 }
@@ -18,8 +18,8 @@ void dlog(Object? message, [StackTrace? stack]) {
 void elog(Object? message, [StackTrace? stack]) {
   if (kDebugMode || kProfileMode) {
     final time = DateTime.now().toIso8601String();
-    debugPrint('[아키노][ERROR][${time}] $message');
-    if (stack != null) debugPrint('[아키노][STACK] ${stack.toString()}');
+    debugPrint('[🚨][ERROR][${time}] $message');
+    if (stack != null) debugPrint('[📚][STACK] ${stack.toString()}');
   }
 }
 

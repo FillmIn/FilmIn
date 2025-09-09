@@ -14,6 +14,9 @@ final themeModeProvider = StateProvider<ThemeMode>((ref) {
   return ThemeMode.system;
 });
 
+/// 온보딩에서 선택/미리보기할 이미지 경로들
+final pickedImagesProvider = StateProvider<List<String>>((ref) => <String>[]);
+
 /// 추후 Firebase, APIClient, Local DB 등을 여기서 초기화할 수 있습니다.
 Future<void> initDependencies() async {
   // TODO: Firebase.initializeApp() 등 초기 세팅 추가

@@ -32,6 +32,7 @@ flutter:
     - assets/icon/filmInLogo.jpeg
     - assets/icon/logoBlack.png
     - assets/icon/logoWhite.png
+    - assets/images/MainBanner.jpg
 
 # flutter_launcher_icons 설정
 flutter_launcher_icons:
