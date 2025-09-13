@@ -23,6 +23,47 @@ void elog(Object? message, [StackTrace? stack]) {
   }
 }
 
+/// Warning logger: shows non-fatal but notable issues.
+void wlog(Object? message, [StackTrace? stack]) {
+  if (kDebugMode || kProfileMode) {
+    final time = DateTime.now().toIso8601String();
+    debugPrint('[⚠️][WARN][${time}] $message');
+    if (stack != null) debugPrint('[📚][STACK] ${stack.toString()}');
+  }
+}
+
+/// Internal compact log gate. When enabled, only allows our tagged lines.
+class _CompactLogGate {
+  static bool enabled = true; // only show tagged logs when true
+
+  // Allow lines that carry our explicit tags or look like critical errors.
+  static final List<RegExp> _allow = <RegExp>[
+    RegExp(r"\[🎞️ FILMIN]"),
+    RegExp(r"\[🚨]"),
+    RegExp(r"\[⚠️]"),
+    RegExp(r"\[📚]\[STACK]"),
+    // Common framework error markers we should not hide accidentally
+    RegExp(
+      r"(?:Unhandled exception|Exception|Error|ASSERTION FAILED)",
+      caseSensitive: false,
+    ),
+  ];
+
+  static bool allow(String? line) {
+    if (!enabled) return true;
+    if (line == null) return false;
+    for (final r in _allow) {
+      if (r.hasMatch(line)) return true;
+    }
+    return false;
+  }
+}
+
+/// Enable or disable compact console logging.
+void setCompactLogging(bool enabled) {
+  _CompactLogGate.enabled = enabled;
+}
+
 /// Riverpod observer to log provider updates and errors.
 class AppProviderObserver extends ProviderObserver {
   @override
@@ -88,15 +129,36 @@ class LoggingNavigatorObserver extends NavigatorObserver {
 
 /// Install global error handlers and debug hooks.
 void initDebugHooks() {
+  // Compact print/debugPrint filter to reduce noisy console output in debug/profile.
+  if (kDebugMode || kProfileMode) {
+    final originalDebugPrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (_CompactLogGate.allow(message)) {
+        originalDebugPrint(message, wrapWidth: wrapWidth);
+      }
+    };
+  }
+
   // Capture Flutter framework errors
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    elog('FlutterError: ${details.exceptionAsString()}', details.stack);
+    final msg = details.exceptionAsString();
+    if (msg.contains('Zone mismatch')) {
+      // Downgrade noisy framework error to a warning to avoid confusion.
+      wlog('FlutterWarning: $msg', details.stack);
+    } else {
+      elog('FlutterError: $msg', details.stack);
+    }
   };
 
   // Capture uncaught async errors
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-    elog('Uncaught zone error: $error', stack);
+    final msg = error.toString();
+    if (msg.contains('Zone mismatch')) {
+      wlog('Uncaught warning: $msg', stack);
+    } else {
+      elog('Uncaught zone error: $msg', stack);
+    }
     return true; // handled
   };
 
@@ -132,7 +194,18 @@ void initDebugHooks() {
 /// Helper to run the app within a guarded zone and attach hooks.
 Future<void> runWithDebugGuard(FutureOr<void> Function() body) async {
   initDebugHooks();
-  await runZonedGuarded(body, (error, stack) {
-    elog('Zone guarded error: $error', stack);
-  });
+  await runZonedGuarded(
+    body,
+    (error, stack) {
+      elog('Zone guarded error: $error', stack);
+    },
+    zoneSpecification: ZoneSpecification(
+      // Intercept bare print() calls and filter them as well
+      print: (self, parent, zone, line) {
+        if (_CompactLogGate.allow(line)) {
+          parent.print(zone, line);
+        }
+      },
+    ),
+  );
 }

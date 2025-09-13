@@ -23,10 +23,27 @@ final pickedImagesProvider = StateProvider<List<String>>((ref) => <String>[]);
 Future<void> initDependencies() async {
   // Firebase initialize (requires google-services files on mobile or web options).
   try {
-    // If google-services configs are present (Android/iOS), this succeeds without options.
-    // For Web/Desktop, configure via FlutterFire (DefaultFirebaseOptions) separately.
-    await Firebase.initializeApp();
+    // Initialize only if no app exists yet. This avoids duplicate init and errors.
+    if (Firebase.apps.isEmpty) {
+      // If google-services configs are present (Android/iOS), this succeeds without options.
+      // For Web/Desktop, configure via FlutterFire (DefaultFirebaseOptions) separately.
+      await Firebase.initializeApp();
+    }
   } catch (e, st) {
-    elog('Firebase init failed: $e', st);
+    // Downgrade to warning to avoid noisy hard errors when configs are missing.
+    wlog('Firebase init failed: $e', st);
   }
 }
+
+/// Firebase 초기화를 Provider로 노출하여, 의존 Provider가 안전하게 대기하도록 함.
+final firebaseInitProvider = FutureProvider<bool>((ref) async {
+  try {
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
+    return true;
+  } catch (e, st) {
+    wlog('Firebase init (provider) failed: $e', st);
+    return false; // gracefully degrade
+  }
+});
