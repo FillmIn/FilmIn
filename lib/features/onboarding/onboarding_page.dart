@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../app/di/main_di.dart';
 import 'data/storage_repository.dart';
@@ -115,7 +116,7 @@ class OnboardingPage extends ConsumerWidget {
                         child: SizedBox(
                           width: MediaQuery.of(context).size.width * 0.7,
                           child: ElevatedButton(
-                            onPressed: () => context.push('/gallery'),
+                            onPressed: () => _pickImageFromGallery(context, ref),
                             style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(52),
@@ -205,6 +206,22 @@ class OnboardingPage extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _pickImageFromGallery(BuildContext context, WidgetRef ref) async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+    if (image != null && context.mounted) {
+      // 리스트에 추가해두면 온보딩 그리드 등에서도 보일 수 있음
+      final list = [...ref.read(pickedImagesProvider)];
+      list.insert(0, image.path);
+      ref.read(pickedImagesProvider.notifier).state = list;
+      if (context.mounted) {
+        context.push('/editview', extra: image.path);
+      }
+    }
   }
 }
 
