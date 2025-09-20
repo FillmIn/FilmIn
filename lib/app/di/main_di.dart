@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import '../debug/debug_settings.dart';
+import '../../firebase_options.dart';
 
 /// 전역 ProviderContainer
 final globalProviderContainer = ProviderContainer();
@@ -21,13 +22,13 @@ final pickedImagesProvider = StateProvider<List<String>>((ref) => <String>[]);
 
 /// 추후 Firebase, APIClient, Local DB 등을 여기서 초기화할 수 있습니다.
 Future<void> initDependencies() async {
-  // Firebase initialize (requires google-services files on mobile or web options).
+  // Firebase initialize with default options
   try {
     // Initialize only if no app exists yet. This avoids duplicate init and errors.
     if (Firebase.apps.isEmpty) {
-      // If google-services configs are present (Android/iOS), this succeeds without options.
-      // For Web/Desktop, configure via FlutterFire (DefaultFirebaseOptions) separately.
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   } catch (e, st) {
     // Downgrade to warning to avoid noisy hard errors when configs are missing.
@@ -39,7 +40,9 @@ Future<void> initDependencies() async {
 final firebaseInitProvider = FutureProvider<bool>((ref) async {
   try {
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
     return true;
   } catch (e, st) {

@@ -36,6 +36,8 @@ ios/Runner/GeneratedPluginRegistrant.*
 android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 **/firebase_app_id_file.json
+lib/firebase_options.dart
+firebase_options.dart
 
 # Android Gradle cache & keystores
 android/.gradle/
@@ -58,3 +60,23 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/
 fastlane/test_output/
+
+# Additional sensitive files
+secrets/
+*.pem
+*.p12
+*.mobileprovision
+credentials.json
+service-account-key.json
+
+# Debug files and temporary files
+debug/
+tmp/
+temp/
+*.tmp
+example_metadata.json
+firebase_storage_rules_example.txt
+
+# IDE temporary files
+.vscode/settings.json
+.vscode/launch.json
