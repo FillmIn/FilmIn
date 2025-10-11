@@ -9,6 +9,8 @@ class FilterToolPanel extends StatelessWidget {
   final String? selectedFilter;
   final ValueChanged<String?> onChanged;
 
+  static final Future<List<String>> _filtersFuture = _loadFilters();
+
   const FilterToolPanel({
     super.key,
     required this.selectedFilter,
@@ -18,7 +20,7 @@ class FilterToolPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
-      future: _initializeFilters(),
+      future: _filtersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
@@ -37,7 +39,7 @@ class FilterToolPanel extends StatelessWidget {
           );
         }
 
-        final filters = snapshot.data ?? [];
+        final filters = snapshot.data ?? const <String>[];
         debugPrint(
           'FilterToolPanel: Building with ${filters.length} filters',
         );
@@ -84,7 +86,7 @@ class FilterToolPanel extends StatelessWidget {
     );
   }
 
-  Future<List<String>> _initializeFilters() async {
+  static Future<List<String>> _loadFilters() async {
     debugPrint(
       '🔥 FilterToolPanel: Starting combined filter initialization...',
     );

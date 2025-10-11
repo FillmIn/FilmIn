@@ -2,15 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-enum CropPreset {
-  original,
-  freeform,
-  square,
-  r4x5,
-  r3x4,
-  r9x16,
-  r16x9,
-}
+enum CropPreset { original, freeform, square, r4x5, r3x4, r9x16, r16x9 }
 
 class CropToolPanel extends StatelessWidget {
   final CropPreset selectedCrop;
@@ -45,13 +37,6 @@ class CropToolPanel extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(width: 10),
-                  _RatioButton(
-                    preset: CropPreset.original,
-                    label: '원본',
-                    selected: selectedCrop == CropPreset.original,
-                    onTap: () => onCropChanged(CropPreset.original),
-                  ),
                   const SizedBox(width: 10),
                   _RatioButton(
                     preset: CropPreset.freeform,
@@ -99,26 +84,43 @@ class CropToolPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                IconButton(
-                  icon: Icon(Icons.close, color: iconColor, size: 28),
-                  onPressed: onCancel,
-                ),
-                Text(
-                  '편집',
-                  style: TextStyle(
-                    color: iconColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  // 취소 버튼 (왼쪽)
+                  IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      color: iconColor,
+                      size: 22,
+                      weight: 300,
+                    ),
+                    onPressed: onCancel,
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.check, color: iconColor, size: 28),
-                  onPressed: onApply,
-                ),
-              ],
+                  const Spacer(),
+                  // 편집 텍스트 (중앙)
+                  Text(
+                    '편집',
+                    style: TextStyle(
+                      color: iconColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                  const Spacer(),
+                  // 완료 버튼 (오른쪽)
+                  IconButton(
+                    icon: Icon(
+                      Icons.check,
+                      color: iconColor,
+                      size: 22,
+                      weight: 300,
+                    ),
+                    onPressed: onApply,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -144,8 +146,9 @@ class _RatioButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconColor = isDark ? Colors.white : Colors.black;
-    final selectedColor =
-        isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.1);
+    final selectedColor = isDark
+        ? Colors.white.withValues(alpha: 0.3)
+        : Colors.black.withValues(alpha: 0.1);
 
     double iconWidth = 40;
     double iconHeight = 40;
@@ -193,23 +196,23 @@ class _RatioButton extends StatelessWidget {
             child: Center(
               child: switch (preset) {
                 CropPreset.original => Icon(
-                    Icons.crop_original,
-                    color: iconColor,
-                    size: 32,
-                  ),
+                  Icons.crop_original,
+                  color: iconColor,
+                  size: 32,
+                ),
                 CropPreset.freeform => Icon(
-                    Icons.crop_free,
-                    color: iconColor,
-                    size: 32,
-                  ),
+                  Icons.crop_free,
+                  color: iconColor,
+                  size: 32,
+                ),
                 _ => Container(
-                    width: iconWidth,
-                    height: iconHeight,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: iconColor, width: 2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  width: iconWidth,
+                  height: iconHeight,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: iconColor, width: 2),
+                    borderRadius: BorderRadius.circular(2),
                   ),
+                ),
               },
             ),
           ),
@@ -235,6 +238,8 @@ class CropOverlay extends StatefulWidget {
   final Offset initialOffset;
   final double initialScale;
   final Rect? initialFreeformRect;
+  final String? imagePath;
+  final double? imageAspectRatio; // 이미지 비율 추가
 
   const CropOverlay({
     super.key,
@@ -244,6 +249,8 @@ class CropOverlay extends StatefulWidget {
     this.initialOffset = Offset.zero,
     this.initialScale = 1.0,
     this.initialFreeformRect,
+    this.imagePath,
+    this.imageAspectRatio,
   });
 
   @override
@@ -291,6 +298,22 @@ class _CropOverlayState extends State<CropOverlay> {
         widget.initialFreeformRect != oldWidget.initialFreeformRect) {
       _freeformRect = widget.initialFreeformRect!;
     }
+
+    // 이미지 비율이 로드되었을 때 기존 rect를 이미지 영역 내로 제한
+    if (widget.preset == CropPreset.freeform &&
+        widget.imageAspectRatio != null &&
+        oldWidget.imageAspectRatio == null &&
+        _freeformRect != Rect.zero) {
+      // 비율이 처음 로드되었을 때만 실행
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            // LayoutBuilder의 크기를 알 수 없으므로, 다음 빌드에서 처리하도록 함
+            // _buildFreeformCropOverlay에서 자동으로 클램프됨
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -304,17 +327,11 @@ class _CropOverlayState extends State<CropOverlay> {
         final size = constraints.biggest;
 
         if (widget.preset == CropPreset.freeform) {
-          if (_freeformRect == Rect.zero) {
-            final width = size.width * 0.8;
-            final height = size.height * 0.6;
-            _freeformRect = Rect.fromCenter(
-              center: Offset(size.width / 2, size.height / 2),
-              width: width,
-              height: height,
-            );
-          }
           return _buildFreeformCropOverlay(size);
         }
+
+        // 이미지 영역 계산
+        final imageArea = _calculateImageArea(size);
 
         return GestureDetector(
           onScaleStart: (details) {
@@ -324,11 +341,27 @@ class _CropOverlayState extends State<CropOverlay> {
           onScaleUpdate: (details) {
             setState(() {
               if (details.scale != 1.0) {
-                _scale = (_lastScale! * details.scale).clamp(0.5, 2.0);
+                // 최소 크기를 이미지 영역의 20%로, 최대 크기를 이미지 영역 전체까지 허용
+                final aspect = _aspectForPreset(widget.preset);
+                if (aspect != null) {
+                  double baseWidth = imageArea.width * 0.9;
+                  double baseHeight = baseWidth / aspect;
+                  if (baseHeight > imageArea.height * 0.9) {
+                    baseHeight = imageArea.height * 0.9;
+                    baseWidth = baseHeight * aspect;
+                  }
+                  // 최소: baseSize의 0.3배, 최대: 이미지 영역에 맞게 자동 조정
+                  final minScale = 0.3;
+                  final maxScale = math.min(
+                    imageArea.width / baseWidth,
+                    imageArea.height / baseHeight,
+                  );
+                  _scale = (_lastScale! * details.scale).clamp(minScale, maxScale);
+                }
               }
               if (_lastFocalPoint != null) {
                 final delta = details.focalPoint - _lastFocalPoint!;
-                _cropOffset = _clampOffset(_cropOffset + delta, size, _scale);
+                _cropOffset = _clampOffset(_cropOffset + delta, size, _scale, imageArea);
                 _lastFocalPoint = details.focalPoint;
               }
               widget.onCropChanged?.call(_cropOffset, _scale);
@@ -341,6 +374,7 @@ class _CropOverlayState extends State<CropOverlay> {
               preset: widget.preset,
               offset: _cropOffset,
               scale: _scale,
+              imageArea: imageArea,
             ),
           ),
         );
@@ -349,6 +383,25 @@ class _CropOverlayState extends State<CropOverlay> {
   }
 
   Widget _buildFreeformCropOverlay(Size size) {
+    // 이미지 영역 계산
+    final imageArea = _calculateImageArea(size);
+
+    // freeformRect가 초기화되지 않았거나 이미지 영역 밖에 있으면 초기화
+    if (_freeformRect == Rect.zero ||
+        _freeformRect.left < imageArea.left - 10 ||
+        _freeformRect.right > imageArea.right + 10) {
+      // 이미지 영역 내에서 초기 크롭 박스 생성
+      final width = imageArea.width * 0.8;
+      final height = imageArea.height * 0.6;
+      _freeformRect = Rect.fromCenter(
+        center: imageArea.center,
+        width: width,
+        height: height,
+      );
+      // 이미지 영역 내로 제한
+      _freeformRect = _clampRectToImage(_freeformRect, imageArea);
+    }
+
     return GestureDetector(
       onPanStart: (details) {
         _lastDragPoint = details.localPosition;
@@ -362,11 +415,15 @@ class _CropOverlayState extends State<CropOverlay> {
           if (_resizeHandle == 'move') {
             _freeformRect = _freeformRect.shift(delta);
           } else if (_resizeHandle != null) {
-            _freeformRect =
-                _resizeFreeformRect(_freeformRect, _resizeHandle!, delta);
+            _freeformRect = _resizeFreeformRect(
+              _freeformRect,
+              _resizeHandle!,
+              delta,
+            );
           }
 
-          _freeformRect = _clampRect(_freeformRect, size);
+          // 이미지 영역으로 제한
+          _freeformRect = _clampRectToImage(_freeformRect, imageArea);
           widget.onFreeformCropChanged?.call(_freeformRect);
         });
       },
@@ -376,29 +433,108 @@ class _CropOverlayState extends State<CropOverlay> {
       },
       child: CustomPaint(
         size: size,
-        painter: FreeformCropPainter(rect: _freeformRect),
+        painter: FreeformCropPainter(
+          rect: _freeformRect,
+          imageArea: imageArea, // 이미지 영역 전달
+        ),
       ),
     );
   }
 
-  Offset _clampOffset(Offset offset, Size size, double scale) {
+  // 이미지가 실제로 표시되는 영역 계산 (BoxFit.contain 로직)
+  Rect _calculateImageArea(Size screenSize) {
+    // 전달받은 이미지 비율 사용, 없으면 화면 전체 사용
+    final imageAspect = widget.imageAspectRatio;
+
+    if (imageAspect == null) {
+      // 비율을 모르면 화면 전체 사용
+      return Rect.fromLTWH(0, 0, screenSize.width, screenSize.height);
+    }
+
+    final screenAspect = screenSize.width / screenSize.height;
+
+    if (imageAspect > screenAspect) {
+      // 이미지가 화면보다 가로로 더 넓음 - 화면 너비에 맞춤
+      final imageWidth = screenSize.width;
+      final imageHeight = screenSize.width / imageAspect;
+      final top = (screenSize.height - imageHeight) / 2;
+      return Rect.fromLTWH(0, top, imageWidth, imageHeight);
+    } else {
+      // 이미지가 화면보다 세로로 더 김 - 화면 높이에 맞춰짐
+      final imageHeight = screenSize.height;
+      final imageWidth = screenSize.height * imageAspect;
+      final left = (screenSize.width - imageWidth) / 2;
+      return Rect.fromLTWH(left, 0, imageWidth, imageHeight);
+    }
+  }
+
+  // 이미지 영역 내로 크롭 박스를 제한
+  Rect _clampRectToImage(Rect rect, Rect imageArea) {
+    // 최소 크기를 이미지 크기의 10%로 설정 (더 유연하게)
+    final minSize = math.min(imageArea.width, imageArea.height) * 0.1;
+
+    // 크롭 박스가 이미지 영역을 벗어나지 않도록 제한
+    double left = rect.left.clamp(imageArea.left, imageArea.right - minSize);
+    double top = rect.top.clamp(imageArea.top, imageArea.bottom - minSize);
+    double right = rect.right.clamp(imageArea.left + minSize, imageArea.right);
+    double bottom = rect.bottom.clamp(
+      imageArea.top + minSize,
+      imageArea.bottom,
+    );
+
+    // 최소 크기 보장
+    if (right - left < minSize) {
+      final centerX = (left + right) / 2;
+      left = (centerX - minSize / 2).clamp(
+        imageArea.left,
+        imageArea.right - minSize,
+      );
+      right = left + minSize;
+    }
+    if (bottom - top < minSize) {
+      final centerY = (top + bottom) / 2;
+      top = (centerY - minSize / 2).clamp(
+        imageArea.top,
+        imageArea.bottom - minSize,
+      );
+      bottom = top + minSize;
+    }
+
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  Offset _clampOffset(Offset offset, Size size, double scale, Rect imageArea) {
     final aspect = _aspectForPreset(widget.preset);
     if (aspect == null) return Offset.zero;
 
-    double baseWidth = size.width * 0.9;
+    // 이미지 영역 내에서 크롭 박스 크기 계산
+    double baseWidth = imageArea.width * 0.9;
     double baseHeight = baseWidth / aspect;
-    if (baseHeight > size.height * 0.9) {
-      baseHeight = size.height * 0.9;
+    if (baseHeight > imageArea.height * 0.9) {
+      baseHeight = imageArea.height * 0.9;
       baseWidth = baseHeight * aspect;
     }
 
-    final cropWidth = baseWidth * scale;
-    final cropHeight = baseHeight * scale;
+    // scale 적용 후 크롭 박스가 이미지 영역을 벗어나지 않도록 추가 검증
+    double cropWidth = baseWidth * scale;
+    double cropHeight = baseHeight * scale;
+
+    // 크롭 박스가 이미지 영역보다 크면 크기 조정
+    if (cropWidth > imageArea.width) {
+      cropWidth = imageArea.width;
+      cropHeight = cropWidth / aspect;
+    }
+    if (cropHeight > imageArea.height) {
+      cropHeight = imageArea.height;
+      cropWidth = cropHeight * aspect;
+    }
+
     final halfWidth = cropWidth / 2;
     final halfHeight = cropHeight / 2;
 
-    final maxDx = math.max(0.0, size.width / 2 - halfWidth);
-    final maxDy = math.max(0.0, size.height / 2 - halfHeight);
+    // 크롭 박스가 이미지 영역을 벗어나지 않도록 offset 제한
+    final maxDx = math.max(0.0, imageArea.width / 2 - halfWidth);
+    final maxDy = math.max(0.0, imageArea.height / 2 - halfHeight);
 
     final dx = offset.dx.clamp(-maxDx, maxDx);
     final dy = offset.dy.clamp(-maxDy, maxDy);
@@ -440,49 +576,19 @@ class _CropOverlayState extends State<CropOverlay> {
         return rect;
     }
   }
-
-  Rect _clampRect(Rect rect, Size bounds) {
-    double left = rect.left.clamp(0.0, bounds.width);
-    double top = rect.top.clamp(0.0, bounds.height);
-    double right = rect.right.clamp(0.0, bounds.width);
-    double bottom = rect.bottom.clamp(0.0, bounds.height);
-
-    if (right - left < 80) {
-      final centerX = (left + right) / 2;
-      left = centerX - 40;
-      right = centerX + 40;
-    }
-    if (bottom - top < 80) {
-      final centerY = (top + bottom) / 2;
-      top = centerY - 40;
-      bottom = centerY + 40;
-    }
-
-    left = left.clamp(0.0, bounds.width);
-    right = right.clamp(0.0, bounds.width);
-    top = top.clamp(0.0, bounds.height);
-    bottom = bottom.clamp(0.0, bounds.height);
-
-    if (right <= left || bottom <= top) {
-      return Rect.fromCenter(
-        center: Offset(bounds.width / 2, bounds.height / 2),
-        width: math.min(bounds.width, 120),
-        height: math.min(bounds.height, 120),
-      );
-    }
-    return Rect.fromLTRB(left, top, right, bottom);
-  }
 }
 
 class CropGridPainter extends CustomPainter {
   final CropPreset preset;
   final Offset offset;
   final double scale;
+  final Rect imageArea;
 
   CropGridPainter({
     required this.preset,
     required this.offset,
     required this.scale,
+    required this.imageArea,
   });
 
   @override
@@ -490,23 +596,41 @@ class CropGridPainter extends CustomPainter {
     final aspect = _aspectForPreset(preset);
     if (aspect == null) return;
 
-    double baseWidth = size.width * 0.9;
+    // 이미지 영역 내에서 크롭 박스 크기 계산
+    double baseWidth = imageArea.width * 0.9;
     double baseHeight = baseWidth / aspect;
-    if (baseHeight > size.height * 0.9) {
-      baseHeight = size.height * 0.9;
+    if (baseHeight > imageArea.height * 0.9) {
+      baseHeight = imageArea.height * 0.9;
       baseWidth = baseHeight * aspect;
     }
 
-    final cropWidth = baseWidth * scale;
-    final cropHeight = baseHeight * scale;
+    // scale 적용 후 크롭 박스가 이미지 영역을 벗어나지 않도록 추가 검증
+    double cropWidth = baseWidth * scale;
+    double cropHeight = baseHeight * scale;
+
+    // 크롭 박스가 이미지 영역보다 크면 scale을 조정
+    if (cropWidth > imageArea.width) {
+      cropWidth = imageArea.width;
+      cropHeight = cropWidth / aspect;
+    }
+    if (cropHeight > imageArea.height) {
+      cropHeight = imageArea.height;
+      cropWidth = cropHeight * aspect;
+    }
+
     final halfWidth = cropWidth / 2;
     final halfHeight = cropHeight / 2;
 
-    double centerX = size.width / 2 + offset.dx;
-    double centerY = size.height / 2 + offset.dy;
+    // 이미지 중심을 기준으로 크롭 박스 위치 계산
+    final imageCenterX = imageArea.left + imageArea.width / 2;
+    final imageCenterY = imageArea.top + imageArea.height / 2;
 
-    centerX = centerX.clamp(halfWidth, size.width - halfWidth);
-    centerY = centerY.clamp(halfHeight, size.height - halfHeight);
+    double centerX = imageCenterX + offset.dx;
+    double centerY = imageCenterY + offset.dy;
+
+    // 크롭 박스가 이미지 영역을 벗어나지 않도록 제한
+    centerX = centerX.clamp(imageArea.left + halfWidth, imageArea.right - halfWidth);
+    centerY = centerY.clamp(imageArea.top + halfHeight, imageArea.bottom - halfHeight);
 
     final rect = Rect.fromCenter(
       center: Offset(centerX, centerY),
@@ -514,13 +638,14 @@ class CropGridPainter extends CustomPainter {
       height: cropHeight,
     );
 
+    // 크롭 영역 외부를 어둡게
     final overlayPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRect(rect)
       ..fillType = PathFillType.evenOdd;
 
     final overlayPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.55)
+      ..color = Colors.black.withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
     canvas.drawPath(overlayPath, overlayPaint);
 
@@ -548,33 +673,52 @@ class CropGridPainter extends CustomPainter {
   bool shouldRepaint(covariant CropGridPainter oldDelegate) {
     return oldDelegate.preset != preset ||
         oldDelegate.offset != offset ||
-        oldDelegate.scale != scale;
+        oldDelegate.scale != scale ||
+        oldDelegate.imageArea != imageArea;
   }
 }
 
 class FreeformCropPainter extends CustomPainter {
   final Rect rect;
+  final Rect imageArea;
 
-  FreeformCropPainter({required this.rect});
+  FreeformCropPainter({required this.rect, required this.imageArea});
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 크롭 영역 외부를 어둡게 (0.6 alpha)
     final overlayPath = Path()
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
       ..addRect(rect)
       ..fillType = PathFillType.evenOdd;
 
     final overlayPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.55)
+      ..color = Colors.black.withValues(alpha: 0.6)
       ..style = PaintingStyle.fill;
     canvas.drawPath(overlayPath, overlayPaint);
 
+    // 흰색 테두리
     final borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawRect(rect, borderPaint);
 
+    // 3x3 격자선
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+
+    for (int i = 1; i <= 2; i++) {
+      final dx = rect.left + rect.width * i / 3;
+      canvas.drawLine(Offset(dx, rect.top), Offset(dx, rect.bottom), gridPaint);
+
+      final dy = rect.top + rect.height * i / 3;
+      canvas.drawLine(Offset(rect.left, dy), Offset(rect.right, dy), gridPaint);
+    }
+
+    // 코너 핸들
     final handlePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
@@ -592,7 +736,7 @@ class FreeformCropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant FreeformCropPainter oldDelegate) {
-    return oldDelegate.rect != rect;
+    return oldDelegate.rect != rect || oldDelegate.imageArea != imageArea;
   }
 }
 

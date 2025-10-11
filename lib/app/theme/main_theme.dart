@@ -41,21 +41,21 @@ class AppTheme {
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.background,
+      scaffoldBackgroundColor: scheme.surface,
       useMaterial3: true,
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.background,
-        foregroundColor: scheme.onBackground,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
         centerTitle: true,
         elevation: 0,
       ),
       textTheme: const TextTheme().apply(
-        bodyColor: scheme.onBackground,
-        displayColor: scheme.onBackground,
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.primary.withOpacity(0.2),
+          backgroundColor: scheme.primary.withValues(alpha: 0.2),
           foregroundColor: scheme.onSurface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(52),
@@ -72,21 +72,21 @@ class AppTheme {
     return ThemeData(
       brightness: Brightness.light,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scheme.background,
+      scaffoldBackgroundColor: scheme.surface,
       useMaterial3: true,
       appBarTheme: AppBarTheme(
-        backgroundColor: scheme.background,
-        foregroundColor: scheme.onBackground,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
         centerTitle: true,
         elevation: 0,
       ),
       textTheme: const TextTheme().apply(
-        bodyColor: scheme.onBackground,
-        displayColor: scheme.onBackground,
+        bodyColor: scheme.onSurface,
+        displayColor: scheme.onSurface,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: scheme.primary.withOpacity(0.2),
+          backgroundColor: scheme.primary.withValues(alpha: 0.2),
           foregroundColor: scheme.onSurface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(52),

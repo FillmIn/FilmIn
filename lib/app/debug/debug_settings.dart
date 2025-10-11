@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 void dlog(Object? message, [StackTrace? stack]) {
   if (kDebugMode || kProfileMode) {
     final time = DateTime.now().toIso8601String();
-    debugPrint('[🎞️ FILMIN][${time}] $message');
+    debugPrint('[🎞️ FILMIN][$time] $message');
     if (stack != null) debugPrint(stack.toString());
   }
 }
@@ -18,7 +18,7 @@ void dlog(Object? message, [StackTrace? stack]) {
 void elog(Object? message, [StackTrace? stack]) {
   if (kDebugMode || kProfileMode) {
     final time = DateTime.now().toIso8601String();
-    debugPrint('[🚨][ERROR][${time}] $message');
+    debugPrint('[🚨][ERROR][$time] $message');
     if (stack != null) debugPrint('[📚][STACK] ${stack.toString()}');
   }
 }
@@ -27,7 +27,7 @@ void elog(Object? message, [StackTrace? stack]) {
 void wlog(Object? message, [StackTrace? stack]) {
   if (kDebugMode || kProfileMode) {
     final time = DateTime.now().toIso8601String();
-    debugPrint('[⚠️][WARN][${time}] $message');
+    debugPrint('[⚠️][WARN][$time] $message');
     if (stack != null) debugPrint('[📚][STACK] ${stack.toString()}');
   }
 }
@@ -144,7 +144,6 @@ void initDebugHooks() {
     FlutterError.presentError(details);
     final msg = details.exceptionAsString();
     if (msg.contains('Zone mismatch')) {
-      // Downgrade noisy framework error to a warning to avoid confusion.
       wlog('FlutterWarning: $msg', details.stack);
     } else {
       elog('FlutterError: $msg', details.stack);
