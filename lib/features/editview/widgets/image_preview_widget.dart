@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../services/shader_xmp_filter_service.dart';
-import '../../../services/lut_filter_service.dart';
-import 'crop_tool.dart';
+
+import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
+
+import 'crop/crop_tool.dart';
 
 class ImagePreviewWidget extends StatelessWidget {
   final String? imagePath;
@@ -126,8 +128,11 @@ class ImagePreviewWidget extends StatelessWidget {
     // 자르기 비율 미리보기 (중앙 크롭 형태)
     final aspect = switch (crop) {
       CropPreset.original => null,
+      CropPreset.freeform => null, // 자유 형식은 비율 제한 없음
       CropPreset.square => 1.0,
       CropPreset.r4x5 => 4 / 5,
+      CropPreset.r3x4 => 3 / 4,
+      CropPreset.r9x16 => 9 / 16,
       CropPreset.r16x9 => 16 / 9,
     };
 

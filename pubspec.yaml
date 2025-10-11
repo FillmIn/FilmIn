@@ -21,6 +21,7 @@ dependencies:
   cached_network_image: ^3.3.1
   http: ^1.1.0
   flutter_svg: ^2.0.10+1
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -38,10 +39,11 @@ flutter:
     - assets/icon/logoBlack.png
     - assets/icon/logoWhite.png
     - assets/images/MainBanner.jpg
-    - assets/xmp/
-    - assets/lut/
+    - assets/filters/xmp/
+    - assets/filters/lut/
     - assets/svg/light/
     - assets/svg/dark/
+    - .env
 
   shaders:
     - shaders/xmp_filter.frag

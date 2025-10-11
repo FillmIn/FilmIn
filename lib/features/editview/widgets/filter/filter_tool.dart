@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../services/shader_xmp_filter_service.dart';
-import '../../../services/lut_filter_service.dart';
+
+import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
 
 enum FilterPreset { none, warm, cool, mono }
 
@@ -21,7 +22,8 @@ class FilterToolPanel extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: const Center(
               child: SizedBox(
                 height: 20,
@@ -36,11 +38,16 @@ class FilterToolPanel extends StatelessWidget {
         }
 
         final filters = snapshot.data ?? [];
-        debugPrint('FilterToolPanel: Building with ${filters.length} filters');
-        debugPrint('FilterToolPanel: Current selected filter: $selectedFilter');
+        debugPrint(
+          'FilterToolPanel: Building with ${filters.length} filters',
+        );
+        debugPrint(
+          'FilterToolPanel: Current selected filter: $selectedFilter',
+        );
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -54,17 +61,21 @@ class FilterToolPanel extends StatelessWidget {
                   },
                 ),
                 const SizedBox(width: 8),
-                ...filters.map((filterName) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _FilterChip(
-                    label: _getDisplayName(filterName),
-                    selected: selectedFilter == filterName,
-                    onTap: () {
-                      debugPrint('FilterToolPanel: Filter selected: $filterName');
-                      onChanged(filterName);
-                    },
+                ...filters.map(
+                  (filterName) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _FilterChip(
+                      label: _getDisplayName(filterName),
+                      selected: selectedFilter == filterName,
+                      onTap: () {
+                        debugPrint(
+                          'FilterToolPanel: Filter selected: $filterName',
+                        );
+                        onChanged(filterName);
+                      },
+                    ),
                   ),
-                )),
+                ),
               ],
             ),
           ),
@@ -74,7 +85,9 @@ class FilterToolPanel extends StatelessWidget {
   }
 
   Future<List<String>> _initializeFilters() async {
-    debugPrint('🔥 FilterToolPanel: Starting combined filter initialization...');
+    debugPrint(
+      '🔥 FilterToolPanel: Starting combined filter initialization...',
+    );
 
     final List<String> allFilters = [];
 
@@ -83,16 +96,22 @@ class FilterToolPanel extends StatelessWidget {
     await shaderService.initialize();
     final xmpFilters = shaderService.getAvailableFilters();
     allFilters.addAll(xmpFilters);
-    debugPrint('🔥 FilterToolPanel: Loaded ${xmpFilters.length} XMP filters: $xmpFilters');
+    debugPrint(
+      '🔥 FilterToolPanel: Loaded ${xmpFilters.length} XMP filters: $xmpFilters',
+    );
 
     // 3D LUT 기반 필터 로드
     final lutService = LutFilterService();
     await lutService.initialize();
     final lutFilters = lutService.getAvailableFilters();
     allFilters.addAll(lutFilters);
-    debugPrint('🔥 FilterToolPanel: Loaded ${lutFilters.length} LUT filters: $lutFilters');
+    debugPrint(
+      '🔥 FilterToolPanel: Loaded ${lutFilters.length} LUT filters: $lutFilters',
+    );
 
-    debugPrint('🔥 FilterToolPanel: Total ${allFilters.length} filters available: $allFilters');
+    debugPrint(
+      '🔥 FilterToolPanel: Total ${allFilters.length} filters available: $allFilters',
+    );
     return allFilters;
   }
 
@@ -107,7 +126,6 @@ class FilterToolPanel extends StatelessWidget {
 
     return filterName;
   }
-
 }
 
 class _FilterChip extends StatelessWidget {
@@ -135,7 +153,9 @@ class _FilterChip extends StatelessWidget {
         : (isDark ? Colors.white : Colors.black);
     final borderColor = selected
         ? Colors.transparent
-        : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3));
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.3)
+            : Colors.black.withValues(alpha: 0.3));
 
     return GestureDetector(
       onTap: onTap,

@@ -23,7 +23,8 @@ class BrightnessToolPanel extends StatelessWidget {
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 2,
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 16),
               ),
               child: Slider(
                 value: brightness,

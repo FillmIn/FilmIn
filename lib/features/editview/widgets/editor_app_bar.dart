@@ -7,12 +7,16 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onCompareStart;
   final VoidCallback onCompareEnd;
   final VoidCallback onSave;
+  final VoidCallback? onUndo;
+  final bool canUndo;
 
   const EditorAppBar({
     super.key,
     required this.onCompareStart,
     required this.onCompareEnd,
     required this.onSave,
+    this.onUndo,
+    this.canUndo = false,
   });
 
   @override
@@ -48,8 +52,17 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       actions: [
         IconButton(
+          icon: Icon(Icons.undo, color: canUndo ? iconColor : iconColor.withValues(alpha: 0.3)),
+          onPressed: canUndo ? onUndo : null,
+          tooltip: '되돌리기',
+        ),
+        IconButton(
           icon: Icon(Icons.file_download_outlined, color: iconColor),
-          onPressed: onSave,
+          onPressed: () {
+            debugPrint('✂️ Save button pressed!');
+            onSave();
+          },
+          tooltip: '저장',
         ),
       ],
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'app/router/main_router.dart';
 import 'app/theme/main_theme.dart';
 import 'app/di/main_di.dart';
@@ -8,6 +10,7 @@ import 'app/debug/debug_settings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
   await initDependencies();
   await runWithDebugGuard(() async {
     runApp(ProviderScope(
