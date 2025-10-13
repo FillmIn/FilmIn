@@ -14,6 +14,7 @@ import 'widgets/crop/crop_tool.dart';
 import 'debug/editview_logger.dart';
 import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
+import 'viewer_page_brightness_functions.dart' as brightness_funcs;
 
 class ViewerPage extends StatefulWidget {
   final dynamic asset;
@@ -33,6 +34,7 @@ class _ViewerPageState extends State<ViewerPage> {
   final int _rotation = 0;
   final bool _flipH = false;
   double _brightness = 0.0;
+  BrightnessAdjustments _brightnessAdjustments = const BrightnessAdjustments();
 
   EditorTool _selectedTool = EditorTool.none;
   double _blurSigma = 0.0;
@@ -106,21 +108,117 @@ class _ViewerPageState extends State<ViewerPage> {
     await _lutService!.initialize();
   }
 
+  bool _hasUnsavedChanges() {
+    // 편집 내용이 있는지 확인
+    return _brightnessAdjustments.exposure != 0.0 ||
+           _brightnessAdjustments.contrast != 0.0 ||
+           _brightnessAdjustments.highlights != 0.0 ||
+           _brightnessAdjustments.shadows != 0.0 ||
+           _brightnessAdjustments.whites != 0.0 ||
+           _brightnessAdjustments.blacks != 0.0 ||
+           _brightnessAdjustments.saturation != 0.0 ||
+           _brightnessAdjustments.warmth != 0.0 ||
+           _brightnessAdjustments.sharpness != 0.0 ||
+           _brightnessAdjustments.noiseReduction != 0.0 ||
+           _filter != null ||
+           _blurSigma > 0;
+  }
+
+  Future<void> _handleBackButton() async {
+    // 편집 내용이 있는지 확인
+    final hasChanges = _hasUnsavedChanges();
+
+    if (!mounted) return;
+
+    final shouldExit = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (dialogContext) {
+        final isDark = Theme.of(dialogContext).brightness == Brightness.dark;
+
+        return AlertDialog(
+          backgroundColor: isDark ? Colors.grey[900] : Colors.white,
+          title: Text(
+            hasChanges ? '저장되지 않은 변경사항' : '편집 종료',
+            style: TextStyle(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            hasChanges
+              ? '지금까지 편집한 내용은 저장되지 않습니다.\n정말 나가시겠습니까?'
+              : '편집을 종료하시겠습니까?',
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.black87,
+              fontSize: 14,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: Text(
+                '취소',
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                backgroundColor: hasChanges
+                  ? Colors.red.withValues(alpha: 0.1)
+                  : Colors.blue.withValues(alpha: 0.1),
+              ),
+              child: Text(
+                '나가기',
+                style: TextStyle(
+                  color: hasChanges ? Colors.red : Colors.blue,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldExit == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? Colors.black : Colors.white;
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: EditorAppBar(
-        onCompareStart: () => setState(() => _showOriginal = true),
-        onCompareEnd: () => setState(() => _showOriginal = false),
-        onSave: _saveEdits,
-        onUndo: _undoEdit,
-        canUndo: _currentHistoryIndex > 0,
-      ),
-      body: Stack(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _handleBackButton();
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: EditorAppBar(
+          onCompareStart: () => setState(() => _showOriginal = true),
+          onCompareEnd: () => setState(() => _showOriginal = false),
+          onSave: _saveEdits,
+          onUndo: _undoEdit,
+          onBack: _handleBackButton,
+          canUndo: _currentHistoryIndex > 0,
+        ),
+        body: Stack(
         children: [
           Column(
             children: [
@@ -143,6 +241,7 @@ class _ViewerPageState extends State<ViewerPage> {
                             rotation: _rotation,
                             flipH: _flipH,
                             brightness: _brightness,
+                            brightnessAdjustments: _brightnessAdjustments,
                             blurSigma: _blurSigma,
                             filter: _filter,
                             crop: _selectedTool == EditorTool.crop
@@ -202,7 +301,8 @@ class _ViewerPageState extends State<ViewerPage> {
                 ),
               ),
               _buildToolPanel(),
-              if (_selectedTool != EditorTool.crop)
+              // 도구가 선택되지 않았을 때만 툴바 표시
+              if (_selectedTool == EditorTool.none)
                 EditorToolbar(
                   selectedTool: _selectedTool,
                   onToolSelected: (tool) =>
@@ -237,6 +337,7 @@ class _ViewerPageState extends State<ViewerPage> {
             ),
         ],
       ),
+      ),
     );
   }
 
@@ -245,14 +346,42 @@ class _ViewerPageState extends State<ViewerPage> {
     switch (_selectedTool) {
       case EditorTool.brightness:
         panel = BrightnessToolPanel(
-          brightness: _brightness,
-          onChanged: (v) => setState(() => _brightness = v),
+          adjustments: _brightnessAdjustments,
+          onChanged: (adjustments) => setState(() => _brightnessAdjustments = adjustments),
+          onAutoAdjust: _autoAdjustImage,
+          onCancel: () => setState(() {
+            _brightnessAdjustments = const BrightnessAdjustments();
+            _selectedTool = EditorTool.none;
+          }),
+          onApply: () {
+            // 완료 버튼 - 상태만 유지하고 도구 닫기 (저장 안함)
+            setState(() => _selectedTool = EditorTool.none);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('밝기 조정 적용됨 (저장 버튼을 눌러 최종 저장)'),
+                duration: Duration(milliseconds: 1500),
+              ),
+            );
+          },
         );
         break;
       case EditorTool.effect:
         panel = EffectToolPanel(
           blurSigma: _blurSigma,
           onChanged: (v) => setState(() => _blurSigma = v),
+          onCancel: () => setState(() {
+            _blurSigma = 0.0;
+            _selectedTool = EditorTool.none;
+          }),
+          onApply: () {
+            setState(() => _selectedTool = EditorTool.none);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('효과 적용됨 (저장 버튼을 눌러 최종 저장)'),
+                duration: Duration(milliseconds: 1500),
+              ),
+            );
+          },
         );
         break;
       case EditorTool.filter:
@@ -261,6 +390,19 @@ class _ViewerPageState extends State<ViewerPage> {
           onChanged: (filter) {
             _logEdit('Filter selected: $filter');
             setState(() => _filter = filter);
+          },
+          onCancel: () => setState(() {
+            _filter = null;
+            _selectedTool = EditorTool.none;
+          }),
+          onApply: () {
+            setState(() => _selectedTool = EditorTool.none);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('필터 적용됨 (저장 버튼을 눌러 최종 저장)'),
+                duration: Duration(milliseconds: 1500),
+              ),
+            );
           },
         );
         break;
@@ -282,9 +424,9 @@ class _ViewerPageState extends State<ViewerPage> {
             _selectedTool = EditorTool.none;
           }),
           onApply: () async {
+            // 자르기는 즉시 저장 (기존 방식)
             _logEdit('Crop applied: offset=$_cropOffset, scale=$_cropScale');
             setState(() => _selectedTool = EditorTool.none);
-            // 완료 버튼 누르면 자동으로 저장
             await _saveEdits();
           },
         );
@@ -314,6 +456,115 @@ class _ViewerPageState extends State<ViewerPage> {
           duration: Duration(seconds: 1),
         ),
       );
+    }
+  }
+
+  Future<void> _autoAdjustImage() async {
+    final path = _imagePath;
+    if (path == null || path.isEmpty) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      final file = File(path);
+      if (!file.existsSync()) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+      final image = img.decodeImage(bytes);
+      if (image == null) {
+        if (mounted) setState(() => _isSaving = false);
+        return;
+      }
+
+      // 이미지 분석 (샘플링)
+      int totalR = 0, totalG = 0, totalB = 0;
+      int minLum = 255, maxLum = 0;
+      int darkPixels = 0, brightPixels = 0;
+      final sampleStep = 10;
+      int sampledPixels = 0;
+
+      for (var y = 0; y < image.height; y += sampleStep) {
+        for (var x = 0; x < image.width; x += sampleStep) {
+          final pixel = image.getPixel(x, y);
+          final r = pixel.r.toInt();
+          final g = pixel.g.toInt();
+          final b = pixel.b.toInt();
+
+          totalR += r;
+          totalG += g;
+          totalB += b;
+          sampledPixels++;
+
+          final lum = (0.299 * r + 0.587 * g + 0.114 * b).toInt();
+          if (lum < minLum) minLum = lum;
+          if (lum > maxLum) maxLum = lum;
+          if (lum < 85) darkPixels++;
+          if (lum > 170) brightPixels++;
+        }
+      }
+
+      final avgR = totalR / sampledPixels;
+      final avgG = totalG / sampledPixels;
+      final avgB = totalB / sampledPixels;
+      final avgLum = (0.299 * avgR + 0.587 * avgG + 0.114 * avgB);
+      final lumRange = maxLum - minLum;
+
+      // 자동 조정 값 계산
+      double exposure = 0.0;
+      double contrast = 0.0;
+      double highlights = 0.0;
+      double shadows = 0.0;
+      double saturation = 0.0;
+
+      if (avgLum < 100) {
+        exposure = ((100 - avgLum) / 255.0).clamp(0.0, 0.3);
+      } else if (avgLum > 155) {
+        exposure = -((avgLum - 155) / 255.0).clamp(0.0, 0.3);
+      }
+
+      if (lumRange < 150) {
+        contrast = ((150 - lumRange) / 300.0).clamp(0.0, 0.3);
+      }
+
+      if (brightPixels > sampledPixels * 0.15) {
+        highlights = -((brightPixels / sampledPixels - 0.15) * 2).clamp(0.0, 0.2);
+      }
+
+      if (darkPixels > sampledPixels * 0.15) {
+        shadows = ((darkPixels / sampledPixels - 0.15) * 2).clamp(0.0, 0.2);
+      }
+
+      final colorVariance = (avgR - avgG).abs() + (avgG - avgB).abs() + (avgR - avgB).abs();
+      if (colorVariance < 30) {
+        saturation = 0.15;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _brightnessAdjustments = BrightnessAdjustments(
+          exposure: exposure,
+          contrast: contrast,
+          highlights: highlights,
+          shadows: shadows,
+          saturation: saturation,
+          warmth: 0.2,
+          sharpness: 0.1,
+        );
+        _isSaving = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('자동 조정 완료'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } catch (e, stackTrace) {
+      _logEditError('Auto-adjust failed', e, stackTrace);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -377,6 +628,50 @@ class _ViewerPageState extends State<ViewerPage> {
       if (_brightness != 0.0) {
         image = img.adjustColor(image, brightness: _brightness);
       }
+
+      // 고급 밝기 조정 (병렬 처리)
+      if (_brightnessAdjustments.exposure != 0.0) {
+        final adjust = (_brightnessAdjustments.exposure * 100).round();
+        final params = brightness_funcs.ExposureParams(image, adjust);
+        image = await compute(brightness_funcs.applyExposureInIsolate, params);
+      }
+      if (_brightnessAdjustments.contrast != 0.0) {
+        final contrastValue = 1.0 + _brightnessAdjustments.contrast;
+        image = img.adjustColor(image, contrast: contrastValue);
+      }
+      if (_brightnessAdjustments.saturation != 0.0) {
+        final saturationValue = 1.0 + _brightnessAdjustments.saturation;
+        image = img.adjustColor(image, saturation: saturationValue);
+      }
+      if (_brightnessAdjustments.highlights != 0.0 || _brightnessAdjustments.shadows != 0.0) {
+        final params = brightness_funcs.HighlightsShadowsParams(
+          image,
+          _brightnessAdjustments.highlights,
+          _brightnessAdjustments.shadows,
+        );
+        image = await compute(brightness_funcs.applyHighlightsShadowsInIsolate, params);
+      }
+      if (_brightnessAdjustments.whites != 0.0 || _brightnessAdjustments.blacks != 0.0) {
+        final params = brightness_funcs.WhitesBlacksParams(
+          image,
+          _brightnessAdjustments.whites,
+          _brightnessAdjustments.blacks,
+        );
+        image = await compute(brightness_funcs.applyWhitesBlacksInIsolate, params);
+      }
+      if (_brightnessAdjustments.warmth != 0.0) {
+        final params = brightness_funcs.WarmthParams(image, _brightnessAdjustments.warmth);
+        image = await compute(brightness_funcs.applyWarmthInIsolate, params);
+      }
+      if (_brightnessAdjustments.sharpness != 0.0 && _brightnessAdjustments.sharpness > 0) {
+        final params = brightness_funcs.SharpenParams(image, _brightnessAdjustments.sharpness);
+        image = await compute(brightness_funcs.applySharpenInIsolate, params);
+      }
+      if (_brightnessAdjustments.noiseReduction > 0) {
+        final radius = (_brightnessAdjustments.noiseReduction * 3).toInt().clamp(1, 5);
+        image = img.gaussianBlur(image, radius: radius);
+      }
+
       if (_filter != null) {
         if (_filter!.contains('PORTRA')) {
           image = img.adjustColor(image, saturation: 0.05, gamma: 0.98);

@@ -8,12 +8,14 @@ import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
 
 import 'crop/crop_tool.dart';
+import 'brightness/brightness_tool.dart';
 
 class ImagePreviewWidget extends StatelessWidget {
   final String? imagePath;
   final int rotation;
   final bool flipH;
   final double brightness;
+  final BrightnessAdjustments brightnessAdjustments;
   final double blurSigma;
   final String? filter;
   final CropPreset crop;
@@ -28,6 +30,7 @@ class ImagePreviewWidget extends StatelessWidget {
     required this.rotation,
     required this.flipH,
     required this.brightness,
+    required this.brightnessAdjustments,
     required this.blurSigma,
     required this.filter,
     required this.crop,
@@ -100,6 +103,9 @@ class ImagePreviewWidget extends StatelessWidget {
         }
       }
 
+      // BrightnessAdjustments 적용
+      content = _applyBrightnessAdjustments(content, brightnessAdjustments);
+
       content = ColorFiltered(colorFilter: brightnessFilter, child: content);
       if (presetFilter != null) {
         content = ColorFiltered(colorFilter: presetFilter, child: content);
@@ -150,5 +156,118 @@ class ImagePreviewWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _applyBrightnessAdjustments(Widget content, BrightnessAdjustments adj) {
+    Widget result = content;
+
+    // 1. Exposure (노출) - 전체 밝기 조정
+    if (adj.exposure != 0.0) {
+      final exposureValue = (adj.exposure * 255).clamp(-255.0, 255.0);
+      final exposureFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, exposureValue,
+        0, 1, 0, 0, exposureValue,
+        0, 0, 1, 0, exposureValue,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: exposureFilter, child: result);
+    }
+
+    // 2. Contrast (대비) - 명암 차이 조정
+    if (adj.contrast != 0.0) {
+      final contrastValue = 1.0 + adj.contrast;
+      final intercept = 128 * (1 - contrastValue);
+      final contrastFilter = ColorFilter.matrix(<double>[
+        contrastValue, 0, 0, 0, intercept,
+        0, contrastValue, 0, 0, intercept,
+        0, 0, contrastValue, 0, intercept,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: contrastFilter, child: result);
+    }
+
+    // 3. Saturation (채도) - 색 선명도 조정
+    if (adj.saturation != 0.0) {
+      final satValue = 1.0 + adj.saturation;
+      final lumR = 0.3086;
+      final lumG = 0.6094;
+      final lumB = 0.0820;
+      final sr = (1 - satValue) * lumR;
+      final sg = (1 - satValue) * lumG;
+      final sb = (1 - satValue) * lumB;
+      final saturationFilter = ColorFilter.matrix(<double>[
+        sr + satValue, sg, sb, 0, 0,
+        sr, sg + satValue, sb, 0, 0,
+        sr, sg, sb + satValue, 0, 0,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: saturationFilter, child: result);
+    }
+
+    // 4. Warmth (따듯함) - 색온도 조정 (빨강↑ 파랑↓)
+    if (adj.warmth != 0.0) {
+      final warmthR = (adj.warmth * 30).clamp(-50.0, 50.0);
+      final warmthB = (-adj.warmth * 30).clamp(-50.0, 50.0);
+      final warmthFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, warmthR,
+        0, 1, 0, 0, 0,
+        0, 0, 1, 0, warmthB,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: warmthFilter, child: result);
+    }
+
+    // 5. Highlights (밝은영역) - 밝은 부분 조정 (근사치)
+    if (adj.highlights != 0.0) {
+      final highlightAdjust = adj.highlights * 100;
+      final highlightsFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, highlightAdjust * 0.5,
+        0, 1, 0, 0, highlightAdjust * 0.5,
+        0, 0, 1, 0, highlightAdjust * 0.5,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: highlightsFilter, child: result);
+    }
+
+    // 6. Shadows (어두운영역) - 어두운 부분 조정 (근사치)
+    if (adj.shadows != 0.0) {
+      final shadowAdjust = adj.shadows * 100;
+      final shadowsFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, shadowAdjust * 0.3,
+        0, 1, 0, 0, shadowAdjust * 0.3,
+        0, 0, 1, 0, shadowAdjust * 0.3,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: shadowsFilter, child: result);
+    }
+
+    // 7. Whites (흰색계열) - 매우 밝은 영역 조정 (근사치)
+    if (adj.whites != 0.0) {
+      final whitesAdjust = adj.whites * 80;
+      final whitesFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, whitesAdjust * 0.6,
+        0, 1, 0, 0, whitesAdjust * 0.6,
+        0, 0, 1, 0, whitesAdjust * 0.6,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: whitesFilter, child: result);
+    }
+
+    // 8. Blacks (검정계열) - 매우 어두운 영역 조정 (근사치)
+    if (adj.blacks != 0.0) {
+      final blacksAdjust = adj.blacks * 80;
+      final blacksFilter = ColorFilter.matrix(<double>[
+        1, 0, 0, 0, blacksAdjust * 0.2,
+        0, 1, 0, 0, blacksAdjust * 0.2,
+        0, 0, 1, 0, blacksAdjust * 0.2,
+        0, 0, 0, 1, 0,
+      ]);
+      result = ColorFiltered(colorFilter: blacksFilter, child: result);
+    }
+
+    // 참고: sharpness와 noiseReduction은 ColorFilter로 구현하기 어려워서
+    // 미리보기에서는 적용하지 않고, 저장 시에만 적용됩니다.
+
+    return result;
   }
 }

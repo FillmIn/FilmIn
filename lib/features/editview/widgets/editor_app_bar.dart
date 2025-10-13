@@ -8,6 +8,7 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onCompareEnd;
   final VoidCallback onSave;
   final VoidCallback? onUndo;
+  final VoidCallback? onBack;
   final bool canUndo;
 
   const EditorAppBar({
@@ -16,6 +17,7 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onCompareEnd,
     required this.onSave,
     this.onUndo,
+    this.onBack,
     this.canUndo = false,
   });
 
@@ -33,7 +35,7 @@ class EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: bgColor,
       leading: IconButton(
         icon: Icon(Icons.arrow_back, color: iconColor),
-        onPressed: () => Navigator.of(context).maybePop(),
+        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
       ),
       title: GestureDetector(
         onTapDown: (_) => onCompareStart(),

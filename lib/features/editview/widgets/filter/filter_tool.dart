@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 
 import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
+import '../edit_action_bar.dart';
 
 enum FilterPreset { none, warm, cool, mono }
 
 class FilterToolPanel extends StatelessWidget {
   final String? selectedFilter;
   final ValueChanged<String?> onChanged;
+  final VoidCallback? onCancel;
+  final VoidCallback? onApply;
 
   static final Future<List<String>> _filtersFuture = _loadFilters();
 
@@ -15,17 +18,22 @@ class FilterToolPanel extends StatelessWidget {
     super.key,
     required this.selectedFilter,
     required this.onChanged,
+    this.onCancel,
+    this.onApply,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
+
     return FutureBuilder(
       future: _filtersFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            color: bgColor,
+            padding: const EdgeInsets.only(bottom: 20, top: 10),
             child: const Center(
               child: SizedBox(
                 height: 20,
@@ -48,35 +56,50 @@ class FilterToolPanel extends StatelessWidget {
         );
 
         return Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          color: bgColor,
+          padding: const EdgeInsets.only(bottom: 20, top: 10),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _FilterChip(
-                  label: '없음',
-                  selected: selectedFilter == null,
-                  onTap: () {
-                    debugPrint('FilterToolPanel: None filter selected');
-                    onChanged(null);
-                  },
-                ),
-                const SizedBox(width: 8),
-                ...filters.map(
-                  (filterName) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _FilterChip(
-                      label: _getDisplayName(filterName),
-                      selected: selectedFilter == filterName,
-                      onTap: () {
-                        debugPrint(
-                          'FilterToolPanel: Filter selected: $filterName',
-                        );
-                        onChanged(filterName);
-                      },
-                    ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 20),
+                      _FilterChip(
+                        label: '없음',
+                        selected: selectedFilter == null,
+                        onTap: () {
+                          debugPrint('FilterToolPanel: None filter selected');
+                          onChanged(null);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ...filters.map(
+                        (filterName) => Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _FilterChip(
+                            label: _getDisplayName(filterName),
+                            selected: selectedFilter == filterName,
+                            onTap: () {
+                              debugPrint(
+                                'FilterToolPanel: Filter selected: $filterName',
+                              );
+                              onChanged(filterName);
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                    ],
                   ),
+                ),
+                const SizedBox(height: 16),
+                EditActionBar(
+                  onCancel: onCancel,
+                  onApply: onApply,
                 ),
               ],
             ),
