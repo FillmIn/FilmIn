@@ -80,3 +80,36 @@ firebase_storage_rules_example.txt
 # IDE temporary files
 .vscode/settings.json
 .vscode/launch.json
+
+# Test/Example files (프로젝트 루트의 임시 테스트 파일)
+example_usage.dart
+
+# Asset caches and generated files
+*.g.dart
+*.freezed.dart
+
+# Flutter generated files
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.swift
+**/generated_plugin_registrant.dart
+
+# iOS build artifacts
+ios/Flutter/.last_build_id
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+
+# Android build artifacts
+android/app/src/main/java/io/flutter/plugins/
+
+# Crash logs
+*.crash
+
+# Lock files (optional - 팀 정책에 따라)
+# pubspec.lock
+
+# User-specific files
+*.swp
+*~
+.project
+.metadata

@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'widgets/editor_app_bar.dart';
 import 'widgets/image_preview_widget.dart';
@@ -459,6 +462,64 @@ class _ViewerPageState extends State<ViewerPage> {
     }
   }
 
+  Future<bool> _saveToGallery(List<int> imageBytes, bool isPng) async {
+    try {
+      _logEdit('Requesting storage permission...');
+
+      // 권한 요청
+      PermissionStatus status;
+      if (Platform.isAndroid) {
+        // Android 13 (API 33) 이상에서는 사진/동영상 권한 따로 요청
+        if (await Permission.photos.isGranted || await Permission.storage.isGranted) {
+          status = PermissionStatus.granted;
+        } else {
+          status = await Permission.photos.request();
+          if (status.isDenied) {
+            status = await Permission.storage.request();
+          }
+        }
+      } else {
+        // iOS
+        status = await Permission.photos.request();
+      }
+
+      if (!status.isGranted) {
+        _logEdit('Storage permission denied');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('갤러리 저장 권한이 필요합니다'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return false;
+      }
+
+      _logEdit('Permission granted, saving to gallery...');
+
+      // 갤러리에 저장
+      final result = await ImageGallerySaver.saveImage(
+        Uint8List.fromList(imageBytes),
+        quality: isPng ? 100 : 95,
+        name: 'FilmIn_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      _logEdit('Gallery save result: $result');
+
+      if (result != null && result['isSuccess'] == true) {
+        _logEdit('Image successfully saved to gallery');
+        return true;
+      } else {
+        _logEdit('Failed to save image to gallery');
+        return false;
+      }
+    } catch (e, stackTrace) {
+      _logEditError('Gallery save failed', e, stackTrace);
+      return false;
+    }
+  }
+
   Future<void> _autoAdjustImage() async {
     final path = _imagePath;
     if (path == null || path.isEmpty) return;
@@ -722,15 +783,9 @@ class _ViewerPageState extends State<ViewerPage> {
           break;
       }
 
-      final dir = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-
       // 원본 파일 확장자 확인
       final originalExt = path.toLowerCase().split('.').last;
       final isPng = originalExt == 'png';
-
-      // 원본 형식 유지 (PNG는 PNG로, 그 외는 고품질 JPG로)
-      final outPath = '${dir.path}/${timestamp}_edited.${isPng ? 'png' : 'jpg'}';
 
       // 별도 isolate에서 인코딩 처리 (UI 블로킹 방지)
       _logEdit('Starting image encoding in background...');
@@ -741,28 +796,25 @@ class _ViewerPageState extends State<ViewerPage> {
       );
       final outBytes = await compute(_encodeImageInIsolate, encodeParams);
       _logEdit('Encoding completed');
-
-      await File(outPath).writeAsBytes(outBytes);
       _logEdit('File size: ${outBytes.length} bytes');
+
+      // 갤러리에 직접 저장
+      final saveResult = await _saveToGallery(outBytes, isPng);
 
       if (!mounted) return;
       setState(() {
-        _imagePath = outPath;
-        // 히스토리에 추가
-        // 현재 인덱스 이후의 히스토리 제거 (새로운 편집 경로 생성)
-        if (_currentHistoryIndex < _imageHistory.length - 1) {
-          _imageHistory.removeRange(_currentHistoryIndex + 1, _imageHistory.length);
-        }
-        _imageHistory.add(outPath);
-        _currentHistoryIndex = _imageHistory.length - 1;
-        _logEdit('History updated: ${_imageHistory.length} items, current index: $_currentHistoryIndex');
         // 로딩 종료
         _isSaving = false;
       });
-      _logEdit('Image saved to: $outPath');
       _logEdit('========== SAVE EDITS END ==========');
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved edited copy to temp folder.')),
+        SnackBar(
+          content: Text(saveResult ? '갤러리에 저장되었습니다' : '저장에 실패했습니다'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: saveResult ? Colors.green : Colors.red,
+        ),
       );
     } catch (e, stackTrace) {
       _logEditError('Save failed', e, stackTrace);
