@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:filmin/services/filters/lut/lut_filter_service.dart';
-import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
 
 import 'crop/crop_tool.dart';
 import 'brightness/brightness_tool.dart';
@@ -21,7 +20,6 @@ class ImagePreviewWidget extends StatelessWidget {
   final CropPreset crop;
   final bool showOriginal;
   final bool isFiltersInitialized;
-  final ShaderXmpFilterService? shaderService;
   final LutFilterService? lutService;
 
   const ImagePreviewWidget({
@@ -36,7 +34,6 @@ class ImagePreviewWidget extends StatelessWidget {
     required this.crop,
     required this.showOriginal,
     required this.isFiltersInitialized,
-    required this.shaderService,
     required this.lutService,
   });
 
@@ -77,29 +74,15 @@ class ImagePreviewWidget extends StatelessWidget {
         0, 0, 0, 1, 0,
       ]);
 
-      // 통합 필터 시스템 (XMP + LUT)
+      // LUT 필터 시스템
       ColorFilter? presetFilter;
-      if (filter != null && isFiltersInitialized) {
-        debugPrint('ImagePreview: Applying combined filter: $filter');
-
-        // XMP 필터 시도
-        if (shaderService != null) {
-          presetFilter = shaderService!.createEnhancedColorFilter(filter!);
-          if (presetFilter != null) {
-            debugPrint('ImagePreview: XMP shader filter applied: $filter');
-          }
-        }
-
-        // XMP 필터가 없으면 LUT 필터 시도
-        if (presetFilter == null && lutService != null) {
-          presetFilter = lutService!.createLutColorFilter(filter!);
-          if (presetFilter != null) {
-            debugPrint('ImagePreview: 3D LUT filter applied: $filter');
-          }
-        }
-
-        if (presetFilter == null) {
-          debugPrint('ImagePreview: No matching filter found for: $filter');
+      if (filter != null && isFiltersInitialized && lutService != null) {
+        debugPrint('ImagePreview: Applying LUT filter: $filter');
+        presetFilter = lutService!.createLutColorFilter(filter!);
+        if (presetFilter != null) {
+          debugPrint('ImagePreview: 3D LUT filter applied: $filter');
+        } else {
+          debugPrint('ImagePreview: No matching LUT filter found for: $filter');
         }
       }
 

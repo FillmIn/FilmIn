@@ -1,4 +1,5 @@
 import 'package:image/image.dart' as img;
+import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 
 // ========== Isolate 파라미터 클래스들 ==========
 
@@ -37,6 +38,13 @@ class SharpenParams {
   final double amount;
 
   SharpenParams(this.image, this.amount);
+}
+
+class LutParams {
+  final img.Image image;
+  final Lut3D lut;
+
+  LutParams(this.image, this.lut);
 }
 
 // ========== Isolate에서 실행할 함수들 ==========
@@ -179,4 +187,95 @@ img.Image applySharpenInIsolate(SharpenParams params) {
   }
 
   return result;
+}
+
+img.Image applyLutInIsolate(LutParams params) {
+  final result = img.Image.from(params.image);
+  final lut = params.lut;
+  final size = lut.size;
+
+  for (var y = 0; y < result.height; y++) {
+    for (var x = 0; x < result.width; x++) {
+      final pixel = result.getPixel(x, y);
+
+      // Normalize RGB values to [0,1] range
+      final r = pixel.r / 255.0;
+      final g = pixel.g / 255.0;
+      final b = pixel.b / 255.0;
+
+      // Direct 3D LUT lookup with trilinear interpolation
+      final outputColor = _interpolateLut3D(lut, r, g, b);
+
+      result.setPixelRgba(
+        x,
+        y,
+        (outputColor[0] * 255).clamp(0, 255).toInt(),
+        (outputColor[1] * 255).clamp(0, 255).toInt(),
+        (outputColor[2] * 255).clamp(0, 255).toInt(),
+        pixel.a.toInt(),
+      );
+    }
+  }
+
+  return result;
+}
+
+List<double> _interpolateLut3D(Lut3D lut, double r, double g, double b) {
+  final size = lut.size;
+
+  // Convert [0,1] range to LUT indices
+  final rIndex = (r * (size - 1)).clamp(0.0, (size - 1).toDouble());
+  final gIndex = (g * (size - 1)).clamp(0.0, (size - 1).toDouble());
+  final bIndex = (b * (size - 1)).clamp(0.0, (size - 1).toDouble());
+
+  // Find surrounding 8 points for trilinear interpolation
+  final r0 = rIndex.floor();
+  final r1 = (r0 + 1).clamp(0, size - 1);
+  final g0 = gIndex.floor();
+  final g1 = (g0 + 1).clamp(0, size - 1);
+  final b0 = bIndex.floor();
+  final b1 = (b0 + 1).clamp(0, size - 1);
+
+  // Calculate weights
+  final rWeight = rIndex - r0;
+  final gWeight = gIndex - g0;
+  final bWeight = bIndex - b0;
+
+  // Get values at 8 surrounding points
+  final c000 = _getLutValue3D(lut, r0, g0, b0);
+  final c001 = _getLutValue3D(lut, r0, g0, b1);
+  final c010 = _getLutValue3D(lut, r0, g1, b0);
+  final c011 = _getLutValue3D(lut, r0, g1, b1);
+  final c100 = _getLutValue3D(lut, r1, g0, b0);
+  final c101 = _getLutValue3D(lut, r1, g0, b1);
+  final c110 = _getLutValue3D(lut, r1, g1, b0);
+  final c111 = _getLutValue3D(lut, r1, g1, b1);
+
+  // Trilinear interpolation
+  final c00 = _lerp3D(c000, c001, bWeight);
+  final c01 = _lerp3D(c010, c011, bWeight);
+  final c10 = _lerp3D(c100, c101, bWeight);
+  final c11 = _lerp3D(c110, c111, bWeight);
+
+  final c0 = _lerp3D(c00, c01, gWeight);
+  final c1 = _lerp3D(c10, c11, gWeight);
+
+  return _lerp3D(c0, c1, rWeight);
+}
+
+List<double> _getLutValue3D(Lut3D lut, int r, int g, int b) {
+  final index = r + g * lut.size + b * lut.size * lut.size;
+  if (index >= 0 && index < lut.entries.length) {
+    final entry = lut.entries[index];
+    return [entry.r, entry.g, entry.b];
+  }
+  return [0.0, 0.0, 0.0];
+}
+
+List<double> _lerp3D(List<double> a, List<double> b, double t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
 }

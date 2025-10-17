@@ -14,7 +14,7 @@ class LutFilterService {
     debugPrint('🔥 LutFilterService: INITIALIZING...');
 
     // .cube 파일 로드
-    await _loadLutFilter('Fuji F-Log to BT.709', 'assets/filters/lut/XH2_FLog_FGamut_to_FLog_BT.709_33grid_V.1.00.cube');
+    await _loadLutFilter('FUJI_C200_Test', 'assets/filters/lut/FUJI_C200_Test.CUBE');
 
     _isInitialized = true;
     debugPrint('🔥 LutFilterService: LOADED ${_lutCache.length} LUT filters successfully!');
@@ -82,6 +82,11 @@ class LutFilterService {
 
   bool get isInitialized => _isInitialized;
 
+  // LUT 데이터 직접 반환 (원본 색감 그대로 사용)
+  Lut3D? getLut(String filterName) {
+    return _lutCache[filterName];
+  }
+
   // 3D LUT 기반 ColorFilter 생성
   ColorFilter? createLutColorFilter(String filterName) {
     final lut = _lutCache[filterName];
@@ -147,7 +152,15 @@ class LutFilterService {
     avgOutputR /= count; avgOutputG /= count; avgOutputB /= count;
 
     // 필터 이름에 따른 조정
-    if (filterName.contains('F-Log')) {
+    if (filterName.contains('FUJI_C200')) {
+      // Fuji C200 필름 특성 반영 - 따뜻하고 부드러운 톤
+      matrix[0] = 1.08;   // Red gain (따뜻한 톤)
+      matrix[6] = 1.02;   // Green slightly increased
+      matrix[12] = 0.95;  // Blue reduced (따뜻한 색감)
+      matrix[4] = 5.0;    // Red offset (밝고 따뜻한 톤)
+      matrix[9] = 3.0;    // Green offset
+      matrix[14] = -5.0;  // Blue offset (따뜻한 색감)
+    } else if (filterName.contains('F-Log')) {
       // F-Log to BT.709 변환 특성 반영
       matrix[0] = 1.05;   // Red gain
       matrix[6] = 0.98;   // Green slightly reduced

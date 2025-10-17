@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:filmin/services/filters/lut/lut_filter_service.dart';
-import 'package:filmin/services/filters/xmp/shader_xmp_filter_service.dart';
 import '../edit_action_bar.dart';
 
 enum FilterPreset { none, warm, cool, mono }
@@ -111,19 +110,10 @@ class FilterToolPanel extends StatelessWidget {
 
   static Future<List<String>> _loadFilters() async {
     debugPrint(
-      '🔥 FilterToolPanel: Starting combined filter initialization...',
+      '🔥 FilterToolPanel: Starting LUT filter initialization...',
     );
 
     final List<String> allFilters = [];
-
-    // XMP 기반 Shader 필터 로드
-    final shaderService = ShaderXmpFilterService();
-    await shaderService.initialize();
-    final xmpFilters = shaderService.getAvailableFilters();
-    allFilters.addAll(xmpFilters);
-    debugPrint(
-      '🔥 FilterToolPanel: Loaded ${xmpFilters.length} XMP filters: $xmpFilters',
-    );
 
     // 3D LUT 기반 필터 로드
     final lutService = LutFilterService();
@@ -141,13 +131,9 @@ class FilterToolPanel extends StatelessWidget {
   }
 
   String _getDisplayName(String filterName) {
-    // XMP 필터 표시명
-    if (filterName.contains('PORTRA')) return 'Portra 160';
-    if (filterName.contains('Fuji C200')) return 'Fuji C200';
-    if (filterName.contains('Cinestill')) return 'Cinestill 800T';
-
     // LUT 필터 표시명
-    if (filterName.contains('F-Log to BT.709')) return 'Fuji F-Log';
+    if (filterName.contains('FUJI_C200')) return 'Fuji C200';
+    if (filterName.contains('F-Log')) return 'Fuji F-Log';
 
     return filterName;
   }
