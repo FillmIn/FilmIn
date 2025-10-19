@@ -6,6 +6,7 @@ build/
 .pub-cache/
 .flutter-plugins
 .flutter-plugins-dependencies
+pubspec.lock.backup
 
 # VSCode
 .vscode/
@@ -31,6 +32,13 @@ ios/Flutter/ephemeral/
 ios/Flutter/Generated.xcconfig
 ios/Flutter/Flutter.podspec
 ios/Runner/GeneratedPluginRegistrant.*
+ios/Podfile.lock
+ios/Runner.xcworkspace/
+*.xcworkspace/
+*.xcuserdata/
+xcuserdata/
+ios/.generated/
+ios/DerivedData/
 
 # Firebase configs (keep out of VCS)
 android/app/google-services.json
@@ -41,9 +49,18 @@ firebase_options.dart
 
 # Android Gradle cache & keystores
 android/.gradle/
+android/local.properties
 android/app/key.properties
+android/captures/
+android/.externalNativeBuild/
+android/gradlew
+android/gradlew.bat
 *.keystore
 *.jks
+*.apk
+*.aab
+*.ap_
+*.dex
 
 # Desktop platform ephemerals
 macos/Flutter/ephemeral/
@@ -92,6 +109,8 @@ example_usage.dart
 **/GeneratedPluginRegistrant.java
 **/GeneratedPluginRegistrant.swift
 **/generated_plugin_registrant.dart
+**/.symlinks/
+**/Flutter/ephemeral/
 
 # iOS build artifacts
 ios/Flutter/.last_build_id
@@ -113,3 +132,31 @@ android/app/src/main/java/io/flutter/plugins/
 *~
 .project
 .metadata
+
+# Web build artifacts
+web/build/
+
+# Shaders compiled output
+shaders/*.frag
+shaders/*.vert
+shaders/compiled/
+
+# Temporary image files
+assets/temp/
+assets/cache/
+
+# Backup files
+*~
+*.bak
+*.orig
+*.rej
+
+# macOS Finder
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Thumbnails
+Thumbs.db
+ehthumbs.db

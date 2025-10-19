@@ -43,8 +43,9 @@ class SharpenParams {
 class LutParams {
   final img.Image image;
   final Lut3D lut;
+  final double intensity;
 
-  LutParams(this.image, this.lut);
+  LutParams(this.image, this.lut, [this.intensity = 1.0]);
 }
 
 // ========== Isolate에서 실행할 함수들 ==========
@@ -192,7 +193,7 @@ img.Image applySharpenInIsolate(SharpenParams params) {
 img.Image applyLutInIsolate(LutParams params) {
   final result = img.Image.from(params.image);
   final lut = params.lut;
-  final size = lut.size;
+  final intensity = params.intensity;
 
   for (var y = 0; y < result.height; y++) {
     for (var x = 0; x < result.width; x++) {
@@ -206,12 +207,18 @@ img.Image applyLutInIsolate(LutParams params) {
       // Direct 3D LUT lookup with trilinear interpolation
       final outputColor = _interpolateLut3D(lut, r, g, b);
 
+      // Blend original and filtered colors based on intensity
+      // intensity = 0.0: original color, intensity = 1.0: full filter
+      final finalR = r * (1.0 - intensity) + outputColor[0] * intensity;
+      final finalG = g * (1.0 - intensity) + outputColor[1] * intensity;
+      final finalB = b * (1.0 - intensity) + outputColor[2] * intensity;
+
       result.setPixelRgba(
         x,
         y,
-        (outputColor[0] * 255).clamp(0, 255).toInt(),
-        (outputColor[1] * 255).clamp(0, 255).toInt(),
-        (outputColor[2] * 255).clamp(0, 255).toInt(),
+        (finalR * 255).clamp(0, 255).toInt(),
+        (finalG * 255).clamp(0, 255).toInt(),
+        (finalB * 255).clamp(0, 255).toInt(),
         pixel.a.toInt(),
       );
     }

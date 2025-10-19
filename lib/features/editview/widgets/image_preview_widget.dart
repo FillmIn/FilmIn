@@ -17,6 +17,7 @@ class ImagePreviewWidget extends StatelessWidget {
   final BrightnessAdjustments brightnessAdjustments;
   final double blurSigma;
   final String? filter;
+  final double filterIntensity;
   final CropPreset crop;
   final bool showOriginal;
   final bool isFiltersInitialized;
@@ -31,6 +32,7 @@ class ImagePreviewWidget extends StatelessWidget {
     required this.brightnessAdjustments,
     required this.blurSigma,
     required this.filter,
+    this.filterIntensity = 1.0,
     required this.crop,
     required this.showOriginal,
     required this.isFiltersInitialized,
@@ -74,11 +76,11 @@ class ImagePreviewWidget extends StatelessWidget {
         0, 0, 0, 1, 0,
       ]);
 
-      // LUT 필터 시스템
+      // LUT 필터 시스템 (강도 적용)
       ColorFilter? presetFilter;
       if (filter != null && isFiltersInitialized && lutService != null) {
-        debugPrint('ImagePreview: Applying LUT filter: $filter');
-        presetFilter = lutService!.createLutColorFilter(filter!);
+        debugPrint('ImagePreview: Applying LUT filter: $filter (intensity: $filterIntensity)');
+        presetFilter = lutService!.createLutColorFilter(filter!, intensity: filterIntensity);
         if (presetFilter != null) {
           debugPrint('ImagePreview: 3D LUT filter applied: $filter');
         } else {

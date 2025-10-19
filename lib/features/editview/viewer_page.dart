@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
-// import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -41,6 +41,7 @@ class _ViewerPageState extends State<ViewerPage> {
   EditorTool _selectedTool = EditorTool.none;
   double _blurSigma = 0.0;
   String? _filter;
+  double _filterIntensity = 1.0; // 필터 강도 (0.0 ~ 1.0)
   CropPreset _crop = CropPreset.original;
   bool _showOriginal = false;
 
@@ -242,6 +243,7 @@ class _ViewerPageState extends State<ViewerPage> {
                               brightnessAdjustments: _brightnessAdjustments,
                               blurSigma: _blurSigma,
                               filter: _filter,
+                              filterIntensity: _filterIntensity,
                               crop: _selectedTool == EditorTool.crop
                                   ? CropPreset.original
                                   : _crop,
@@ -385,12 +387,18 @@ class _ViewerPageState extends State<ViewerPage> {
       case EditorTool.filter:
         panel = FilterToolPanel(
           selectedFilter: _filter,
+          filterIntensity: _filterIntensity,
           onChanged: (filter) {
             _logEdit('Filter selected: $filter');
             setState(() => _filter = filter);
           },
+          onIntensityChanged: (intensity) {
+            _logEdit('Filter intensity changed: $intensity');
+            setState(() => _filterIntensity = intensity);
+          },
           onCancel: () => setState(() {
             _filter = null;
+            _filterIntensity = 1.0;
             _selectedTool = EditorTool.none;
           }),
           onApply: () {
@@ -412,7 +420,13 @@ class _ViewerPageState extends State<ViewerPage> {
             // 비율 변경 시 offset과 scale 초기화
             _cropOffset = Offset.zero;
             _cropScale = 1.0;
-            _freeformCropRect = null; // 자유 형식 영역도 초기화
+            // 자유 형식으로 변경 시 기본 rect 생성, 다른 비율은 null로 초기화
+            if (crop == CropPreset.freeform) {
+              // CropOverlay가 기본 rect를 생성하도록 Rect.zero 설정
+              _freeformCropRect = Rect.zero;
+            } else {
+              _freeformCropRect = null;
+            }
           }),
           onCancel: () => setState(() {
             _crop = CropPreset.original;
@@ -422,10 +436,11 @@ class _ViewerPageState extends State<ViewerPage> {
             _selectedTool = EditorTool.none;
           }),
           onApply: () async {
-            // 자르기는 즉시 저장 (기존 방식)
+            // 자르기는 임시 파일로 저장하고 히스토리 관리
             _logEdit('Crop applied: offset=$_cropOffset, scale=$_cropScale');
+            _logEdit('Freeform crop rect: $_freeformCropRect');
             setState(() => _selectedTool = EditorTool.none);
-            await _saveEdits();
+            await _saveTempEdits();
           },
         );
         break;
@@ -629,6 +644,162 @@ class _ViewerPageState extends State<ViewerPage> {
     }
   }
 
+  // 임시 파일로 저장 (자르기용 - 히스토리 관리)
+  // ⚠️ 중요: 이 함수는 순수하게 자르기만 수행합니다 (다른 편집은 적용하지 않음)
+  // 다른 편집(밝기, 필터 등)을 다시 적용하면 PNG로 저장해도 품질이 계속 떨어집니다
+  Future<void> _saveTempEdits() async {
+    _logEdit('========== SAVE TEMP EDITS (CROP ONLY) START ==========');
+
+    // 로딩 시작
+    setState(() => _isSaving = true);
+
+    final path = _imagePath;
+    if (path == null || path.isEmpty) {
+      _logEdit('Save aborted: no image path');
+      setState(() => _isSaving = false);
+      return;
+    }
+    final isHttp = path.startsWith('http://') || path.startsWith('https://');
+    if (isHttp) {
+      setState(() => _isSaving = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Editing network images not supported yet. Download first.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      _logEdit('Reading image from: $path');
+
+      final bytes = await File(path).readAsBytes();
+
+      // 포맷별 디코더 사용으로 품질 향상
+      img.Image? image;
+      final ext = path.toLowerCase().split('.').last;
+      if (ext == 'jpg' || ext == 'jpeg') {
+        image = img.decodeJpg(bytes);
+        _logEdit('Decoded as JPEG with format-specific decoder');
+      } else if (ext == 'png') {
+        image = img.decodePng(bytes);
+        _logEdit('Decoded as PNG with format-specific decoder');
+      } else {
+        image = img.decodeImage(bytes);
+        _logEdit('Decoded with generic decoder');
+      }
+
+      if (image == null) throw Exception('Unsupported image: $path');
+
+      _logEdit('Original image format: ${image.numChannels} channels');
+      _logEdit('Image size: ${image.width}x${image.height}');
+
+      // ⚠️ 자르기만 수행 - 다른 편집은 건너뜀
+      // 이미지는 이미 이전 단계에서 밝기/필터가 적용된 상태이므로 다시 적용하지 않음
+      _logEdit('⚠️ CROP ONLY MODE - Skipping brightness/filter adjustments');
+      _logEdit('Current crop preset: $_crop');
+      _logEdit('Crop offset: $_cropOffset, scale: $_cropScale');
+
+      // 크롭만 적용
+      switch (_crop) {
+        case CropPreset.original:
+          _logEdit('No crop applied (original preset)');
+          break;
+        case CropPreset.freeform:
+          if (_freeformCropRect != null && _freeformCropRect != Rect.zero) {
+            _logEdit('Applying freeform crop...');
+            _logEdit('Freeform rect: $_freeformCropRect');
+            image = _freeformCrop(image, _freeformCropRect!);
+          } else {
+            _logEdit('⚠️ Freeform crop skipped: rect is null or zero');
+          }
+          break;
+        case CropPreset.square:
+          _logEdit('Applying square crop...');
+          image = _customCropToAspect(image, 1, 1, _cropOffset, _cropScale);
+          break;
+        case CropPreset.r4x5:
+          _logEdit('Applying 4:5 crop...');
+          image = _customCropToAspect(image, 4, 5, _cropOffset, _cropScale);
+          break;
+        case CropPreset.r3x4:
+          _logEdit('Applying 3:4 crop...');
+          image = _customCropToAspect(image, 3, 4, _cropOffset, _cropScale);
+          break;
+        case CropPreset.r9x16:
+          _logEdit('Applying 9:16 crop...');
+          image = _customCropToAspect(image, 9, 16, _cropOffset, _cropScale);
+          break;
+        case CropPreset.r16x9:
+          _logEdit('Applying 16:9 crop...');
+          image = _customCropToAspect(image, 16, 9, _cropOffset, _cropScale);
+          break;
+      }
+
+      // 임시 파일은 무손실 PNG로 저장 (색상 변동 방지)
+      // 압축 레벨 6을 사용 (9는 너무 느리고, 6이 품질과 속도의 최적 균형점)
+      _logEdit('Starting image encoding to PNG (lossless)...');
+      _logEdit('Image bit depth: ${image.numChannels} channels');
+      _logEdit('Image has alpha: ${image.hasAlpha}');
+      final encodeParams = _EncodeParams(
+        image,
+        true,  // 항상 PNG로 저장
+        6,     // PNG compression level (6 = 좋은 품질과 적당한 속도)
+      );
+      final outBytes = await compute(_encodeImageInIsolate, encodeParams);
+      _logEdit('Encoding completed');
+
+      // 임시 디렉토리에 PNG로 저장
+      final tempDir = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final outPath = '${tempDir.path}/edited_$timestamp.png';
+
+      await File(outPath).writeAsBytes(outBytes);
+      _logEdit('Temp file saved: $outPath');
+      _logEdit('File size: ${outBytes.length} bytes');
+
+      // 히스토리 업데이트
+      if (_currentHistoryIndex < _imageHistory.length - 1) {
+        _imageHistory.removeRange(_currentHistoryIndex + 1, _imageHistory.length);
+      }
+      _imageHistory.add(outPath);
+      _currentHistoryIndex++;
+
+      if (!mounted) return;
+      setState(() {
+        _imagePath = outPath;
+        _isSaving = false;
+        // 크롭 상태 초기화
+        _crop = CropPreset.original;
+        _cropOffset = Offset.zero;
+        _cropScale = 1.0;
+        _freeformCropRect = null;
+      });
+
+      _logEdit('History updated: index=$_currentHistoryIndex, total=${_imageHistory.length}');
+      _logEdit('========== SAVE TEMP EDITS END ==========');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('자르기가 적용되었습니다'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } catch (e, stackTrace) {
+      _logEditError('Temp save failed', e, stackTrace);
+      setState(() => _isSaving = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Save failed: $e')),
+      );
+    }
+  }
+
+  // 갤러리에 최종 저장
   Future<void> _saveEdits() async {
     _logEdit('========== SAVE EDITS START ==========');
 
@@ -674,8 +845,20 @@ class _ViewerPageState extends State<ViewerPage> {
 
       final bytes = await File(path).readAsBytes();
 
-      // EXIF 정보와 색 공간을 보존하기 위해 명시적으로 디코드
-      img.Image? image = img.decodeImage(bytes);
+      // 포맷별 디코더 사용으로 품질 향상
+      img.Image? image;
+      final ext = path.toLowerCase().split('.').last;
+      if (ext == 'jpg' || ext == 'jpeg') {
+        image = img.decodeJpg(bytes);
+        _logEdit('Decoded as JPEG with format-specific decoder');
+      } else if (ext == 'png') {
+        image = img.decodePng(bytes);
+        _logEdit('Decoded as PNG with format-specific decoder');
+      } else {
+        image = img.decodeImage(bytes);
+        _logEdit('Decoded with generic decoder');
+      }
+
       if (image == null) throw Exception('Unsupported image: $path');
 
       _logEdit('Original image format: ${image.numChannels} channels');
@@ -751,14 +934,14 @@ class _ViewerPageState extends State<ViewerPage> {
         image = img.gaussianBlur(image, radius: radius);
       }
 
-      // LUT 필터 적용 (원본 LUT 색감 그대로 사용)
+      // LUT 필터 적용 (원본 LUT 색감 그대로 사용, intensity 적용)
       if (_filter != null && _lutService != null) {
-        _logEdit('Applying LUT filter: $_filter');
+        _logEdit('Applying LUT filter: $_filter (intensity: $_filterIntensity)');
         final lut = _lutService!.getLut(_filter!);
         if (lut != null) {
-          final lutParams = brightness_funcs.LutParams(image, lut);
+          final lutParams = brightness_funcs.LutParams(image, lut, _filterIntensity);
           image = await compute(brightness_funcs.applyLutInIsolate, lutParams);
-          _logEdit('LUT filter applied successfully');
+          _logEdit('LUT filter applied successfully with intensity $_filterIntensity');
         } else {
           _logEdit('LUT not found for filter: $_filter');
         }
@@ -777,9 +960,12 @@ class _ViewerPageState extends State<ViewerPage> {
           _logEdit('No crop applied (original preset)');
           break;
         case CropPreset.freeform:
-          if (_freeformCropRect != null) {
+          if (_freeformCropRect != null && _freeformCropRect != Rect.zero) {
             _logEdit('Applying freeform crop...');
+            _logEdit('Freeform rect: $_freeformCropRect');
             image = _freeformCrop(image, _freeformCropRect!);
+          } else {
+            _logEdit('⚠️ Freeform crop skipped: rect is null or zero');
           }
           break;
         case CropPreset.square:
@@ -810,10 +996,11 @@ class _ViewerPageState extends State<ViewerPage> {
 
       // 별도 isolate에서 인코딩 처리 (UI 블로킹 방지)
       _logEdit('Starting image encoding in background...');
+      _logEdit('Output format: ${isPng ? 'PNG' : 'JPEG'}');
       final encodeParams = _EncodeParams(
         image,
         isPng,
-        isPng ? 3 : 92, // PNG: level 3, JPG: quality 92
+        isPng ? 6 : 95, // PNG: level 6 (좋은 압축), JPG: quality 95 (고품질)
       );
       final outBytes = await compute(_encodeImageInIsolate, encodeParams);
       _logEdit('Encoding completed');

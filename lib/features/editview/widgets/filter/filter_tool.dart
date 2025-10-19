@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-
 import 'package:filmin/services/filters/lut/lut_filter_service.dart';
-import '../edit_action_bar.dart';
 
-enum FilterPreset { none, warm, cool, mono }
+import 'filter_list_view.dart';
+import 'filter_detail_view.dart';
 
-class FilterToolPanel extends StatelessWidget {
+/// 필터 도구 패널 - 메인 컨트롤러
+class FilterToolPanel extends StatefulWidget {
   final String? selectedFilter;
+  final double filterIntensity;
   final ValueChanged<String?> onChanged;
+  final ValueChanged<double>? onIntensityChanged;
   final VoidCallback? onCancel;
   final VoidCallback? onApply;
 
@@ -16,102 +18,19 @@ class FilterToolPanel extends StatelessWidget {
   const FilterToolPanel({
     super.key,
     required this.selectedFilter,
+    required this.filterIntensity,
     required this.onChanged,
+    this.onIntensityChanged,
     this.onCancel,
     this.onApply,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? Colors.black : Colors.white;
+  State<FilterToolPanel> createState() => _FilterToolPanelState();
 
-    return FutureBuilder(
-      future: _filtersFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Container(
-            color: bgColor,
-            padding: const EdgeInsets.only(bottom: 20, top: 10),
-            child: const Center(
-              child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            ),
-          );
-        }
-
-        final filters = snapshot.data ?? const <String>[];
-        debugPrint(
-          'FilterToolPanel: Building with ${filters.length} filters',
-        );
-        debugPrint(
-          'FilterToolPanel: Current selected filter: $selectedFilter',
-        );
-
-        return Container(
-          color: bgColor,
-          padding: const EdgeInsets.only(bottom: 20, top: 10),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 20),
-                      _FilterChip(
-                        label: '없음',
-                        selected: selectedFilter == null,
-                        onTap: () {
-                          debugPrint('FilterToolPanel: None filter selected');
-                          onChanged(null);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ...filters.map(
-                        (filterName) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _FilterChip(
-                            label: _getDisplayName(filterName),
-                            selected: selectedFilter == filterName,
-                            onTap: () {
-                              debugPrint(
-                                'FilterToolPanel: Filter selected: $filterName',
-                              );
-                              onChanged(filterName);
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                EditActionBar(
-                  onCancel: onCancel,
-                  onApply: onApply,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
+  /// 필터 초기화 및 로드
   static Future<List<String>> _loadFilters() async {
-    debugPrint(
-      '🔥 FilterToolPanel: Starting LUT filter initialization...',
-    );
+    debugPrint('🔥 FilterToolPanel: Starting LUT filter initialization...');
 
     final List<String> allFilters = [];
 
@@ -129,66 +48,97 @@ class FilterToolPanel extends StatelessWidget {
     );
     return allFilters;
   }
-
-  String _getDisplayName(String filterName) {
-    // LUT 필터 표시명
-    if (filterName.contains('FUJI_C200')) return 'Fuji C200';
-    if (filterName.contains('F-Log')) return 'Fuji F-Log';
-
-    return filterName;
-  }
 }
 
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+class _FilterToolPanelState extends State<FilterToolPanel> {
+  String? _detailViewFilter; // 상세 화면에 표시 중인 필터
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
 
-    // 다크/라이트 모드에 따른 색상 설정
-    final backgroundColor = selected
-        ? (isDark ? Colors.white : Colors.black)
-        : Colors.transparent;
-    final textColor = selected
-        ? (isDark ? Colors.black : Colors.white)
-        : (isDark ? Colors.white : Colors.black);
-    final borderColor = selected
-        ? Colors.transparent
-        : (isDark
-            ? Colors.white.withValues(alpha: 0.3)
-            : Colors.black.withValues(alpha: 0.3));
+    return FutureBuilder(
+      future: FilterToolPanel._filtersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildLoadingView(bgColor);
+        }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: borderColor,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: textColor,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+        final filters = snapshot.data ?? const <String>[];
+
+        // 상세 화면이 열려있으면 상세 화면 표시
+        if (_detailViewFilter != null) {
+          return FilterDetailView(
+            filterName: _detailViewFilter!,
+            filterIntensity: widget.filterIntensity,
+            isDark: isDark,
+            bgColor: bgColor,
+            onIntensityChanged: widget.onIntensityChanged,
+            onBack: _closeDetailView,
+            onApply: _applyAndCloseDetailView,
+          );
+        }
+
+        // 필터 목록 화면
+        return FilterListView(
+          filters: filters,
+          selectedFilter: widget.selectedFilter,
+          isDark: isDark,
+          bgColor: bgColor,
+          onCancel: widget.onCancel,
+          onApply: widget.onApply,
+          onFilterSelected: _onFilterSelected,
+        );
+      },
+    );
+  }
+
+  /// 로딩 화면
+  Widget _buildLoadingView(Color bgColor) {
+    return Container(
+      color: bgColor,
+      padding: const EdgeInsets.only(bottom: 20, top: 10),
+      child: const Center(
+        child: SizedBox(
+          height: 20,
+          width: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
           ),
         ),
       ),
     );
+  }
+
+  /// 필터 선택 핸들러
+  void _onFilterSelected(String? filterName) {
+    // 필터 바로 적용
+    widget.onChanged(filterName);
+
+    // null이 아니면 상세 화면으로 이동
+    if (filterName != null) {
+      setState(() {
+        _detailViewFilter = filterName;
+      });
+    }
+  }
+
+  /// 상세 화면 닫기
+  void _closeDetailView() {
+    setState(() {
+      _detailViewFilter = null;
+    });
+  }
+
+  /// 필터 적용하고 상세 화면 닫기
+  void _applyAndCloseDetailView() {
+    if (_detailViewFilter != null) {
+      widget.onChanged(_detailViewFilter);
+    }
+    setState(() {
+      _detailViewFilter = null;
+    });
   }
 }
