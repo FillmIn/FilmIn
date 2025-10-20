@@ -7,6 +7,7 @@ import 'filter_detail_view.dart';
 /// 필터 도구 패널 - 메인 컨트롤러
 class FilterToolPanel extends StatefulWidget {
   final String? selectedFilter;
+  final String? imagePath;
   final double filterIntensity;
   final ValueChanged<String?> onChanged;
   final ValueChanged<double>? onIntensityChanged;
@@ -18,6 +19,7 @@ class FilterToolPanel extends StatefulWidget {
   const FilterToolPanel({
     super.key,
     required this.selectedFilter,
+    this.imagePath,
     required this.filterIntensity,
     required this.onChanged,
     this.onIntensityChanged,
@@ -84,6 +86,7 @@ class _FilterToolPanelState extends State<FilterToolPanel> {
         return FilterListView(
           filters: filters,
           selectedFilter: widget.selectedFilter,
+          imagePath: widget.imagePath,
           isDark: isDark,
           bgColor: bgColor,
           onCancel: widget.onCancel,

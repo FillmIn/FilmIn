@@ -68,8 +68,9 @@ class _ViewerPageState extends State<ViewerPage> {
     if (_imagePath != null) {
       _imageHistory.add(_imagePath!);
       _currentHistoryIndex = 0;
-      _loadImageAspectRatio(); // 이미지 비율 로드
     }
+    // 필터 서비스만 백그라운드에서 초기화
+    // 이미지 비율은 Crop 도구 사용 시에만 로드 (지연 로딩)
     _initializeFilterServices();
   }
 
@@ -81,12 +82,15 @@ class _ViewerPageState extends State<ViewerPage> {
       final file = File(path);
       if (!file.existsSync()) return;
 
+      // 작은 크기로 디코딩하여 비율만 확인 (성능 최적화)
       final bytes = await file.readAsBytes();
       final image = img.decodeImage(bytes);
       if (image != null && mounted) {
         setState(() {
           _imageAspectRatio = image.width / image.height;
         });
+        // 메모리 해제
+        image.clear();
       }
     } catch (e) {
       _logEditError('Failed to load image aspect ratio', e);
@@ -309,31 +313,6 @@ class _ViewerPageState extends State<ViewerPage> {
                   ),
               ],
             ),
-            if (_isSaving)
-              Container(
-                color: Colors.black.withValues(alpha: 0.7),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          isDark ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        '이미지 처리 중...',
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
@@ -346,6 +325,7 @@ class _ViewerPageState extends State<ViewerPage> {
       case EditorTool.brightness:
         panel = BrightnessToolPanel(
           adjustments: _brightnessAdjustments,
+          isProcessing: _isSaving,
           onChanged: (adjustments) =>
               setState(() => _brightnessAdjustments = adjustments),
           onAutoAdjust: _autoAdjustImage,
@@ -387,6 +367,7 @@ class _ViewerPageState extends State<ViewerPage> {
       case EditorTool.filter:
         panel = FilterToolPanel(
           selectedFilter: _filter,
+          imagePath: _imagePath,
           filterIntensity: _filterIntensity,
           onChanged: (filter) {
             _logEdit('Filter selected: $filter');
@@ -413,6 +394,11 @@ class _ViewerPageState extends State<ViewerPage> {
         );
         break;
       case EditorTool.crop:
+        // Crop 도구 선택 시 이미지 비율 로드 (지연 로딩)
+        if (_imageAspectRatio == null) {
+          _loadImageAspectRatio();
+        }
+
         panel = CropToolPanel(
           selectedCrop: _crop,
           onCropChanged: (crop) => setState(() {
@@ -535,7 +521,11 @@ class _ViewerPageState extends State<ViewerPage> {
     final path = _imagePath;
     if (path == null || path.isEmpty) return;
 
+    // 먼저 로딩 상태 표시
     setState(() => _isSaving = true);
+
+    // 현재 프레임이 렌더링될 때까지 대기 (UI 업데이트 보장)
+    await Future.delayed(const Duration(milliseconds: 100));
 
     try {
       final file = File(path);

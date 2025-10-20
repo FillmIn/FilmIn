@@ -8,6 +8,7 @@ export 'brightness_models.dart';
 /// 밝기 조정 도구 패널 - 메인 컨트롤러
 class BrightnessToolPanel extends StatefulWidget {
   final BrightnessAdjustments adjustments;
+  final bool isProcessing;
   final ValueChanged<BrightnessAdjustments> onChanged;
   final VoidCallback? onAutoAdjust;
   final VoidCallback? onCancel;
@@ -16,6 +17,7 @@ class BrightnessToolPanel extends StatefulWidget {
   const BrightnessToolPanel({
     super.key,
     required this.adjustments,
+    this.isProcessing = false,
     required this.onChanged,
     this.onAutoAdjust,
     this.onCancel,
@@ -43,6 +45,7 @@ class _BrightnessToolPanelState extends State<BrightnessToolPanel> {
             ? BrightnessListView(
                 adjustments: widget.adjustments,
                 isDark: isDark,
+                isProcessing: widget.isProcessing,
                 onAutoAdjust: widget.onAutoAdjust,
                 onCancel: widget.onCancel,
                 onApply: widget.onApply,

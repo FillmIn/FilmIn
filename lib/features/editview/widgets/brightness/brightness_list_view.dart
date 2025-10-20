@@ -6,6 +6,7 @@ import '../edit_action_bar.dart';
 class BrightnessListView extends StatelessWidget {
   final BrightnessAdjustments adjustments;
   final bool isDark;
+  final bool isProcessing;
   final VoidCallback? onAutoAdjust;
   final VoidCallback? onCancel;
   final VoidCallback? onApply;
@@ -15,6 +16,7 @@ class BrightnessListView extends StatelessWidget {
     super.key,
     required this.adjustments,
     required this.isDark,
+    this.isProcessing = false,
     this.onAutoAdjust,
     this.onCancel,
     this.onApply,
@@ -34,6 +36,7 @@ class BrightnessListView extends StatelessWidget {
               const SizedBox(width: 10),
               _AutoButton(
                 isDark: isDark,
+                isProcessing: isProcessing,
                 onTap: onAutoAdjust,
               ),
               const SizedBox(width: 10),
@@ -62,10 +65,12 @@ class BrightnessListView extends StatelessWidget {
 /// 자동 조정 버튼
 class _AutoButton extends StatelessWidget {
   final bool isDark;
+  final bool isProcessing;
   final VoidCallback? onTap;
 
   const _AutoButton({
     required this.isDark,
+    this.isProcessing = false,
     this.onTap,
   });
 
@@ -74,7 +79,7 @@ class _AutoButton extends StatelessWidget {
     final textColor = isDark ? Colors.white : Colors.black;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: isProcessing ? null : onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Column(
@@ -83,15 +88,26 @@ class _AutoButton extends StatelessWidget {
             SizedBox(
               width: 60,
               height: 60,
-              child: Icon(
-                Icons.auto_awesome_outlined,
-                size: 34,
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
+              child: isProcessing
+                  ? Center(
+                      child: SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: isDark ? Colors.white70 : Colors.black54,
+                        ),
+                      ),
+                    )
+                  : Icon(
+                      Icons.auto_awesome_outlined,
+                      size: 34,
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
             ),
             const SizedBox(height: 6),
             Text(
-              '자동',
+              isProcessing ? '처리중...' : '자동',
               style: TextStyle(
                 color: textColor,
                 fontSize: 12,

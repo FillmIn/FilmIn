@@ -9,7 +9,7 @@ import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 import 'crop/crop_tool.dart';
 import 'brightness/brightness_tool.dart';
 
-class ImagePreviewWidget extends StatelessWidget {
+class ImagePreviewWidget extends StatefulWidget {
   final String? imagePath;
   final int rotation;
   final bool flipH;
@@ -40,8 +40,20 @@ class ImagePreviewWidget extends StatelessWidget {
   });
 
   @override
+  State<ImagePreviewWidget> createState() => _ImagePreviewWidgetState();
+}
+
+class _ImagePreviewWidgetState extends State<ImagePreviewWidget> {
+  ColorFilter? _cachedCombinedFilter;
+  ColorFilter? _cachedLutFilter;
+  String? _lastFilterName;
+  double _lastFilterIntensity = 1.0;
+  BrightnessAdjustments _lastBrightnessAdjustments = const BrightnessAdjustments();
+  double _lastBrightness = 0.0;
+
+  @override
   Widget build(BuildContext context) {
-    final path = imagePath;
+    final path = widget.imagePath;
     if (path == null || path.isEmpty) {
       return const Text(
         'No image provided',
@@ -51,7 +63,7 @@ class ImagePreviewWidget extends StatelessWidget {
     final isHttp = path.startsWith('http://') || path.startsWith('https://');
 
     // 미리보기는 위젯 트랜스폼/필터로 빠르게 처리
-    final radians = rotation * math.pi / 180.0;
+    final radians = widget.rotation * math.pi / 180.0;
     Widget preview;
     if (isHttp) {
       preview = CachedNetworkImage(imageUrl: path, fit: BoxFit.contain);
@@ -66,36 +78,45 @@ class ImagePreviewWidget extends StatelessWidget {
     Widget content = preview;
 
     // 원본과 비교 중이면 편집을 적용하지 않음
-    if (!showOriginal) {
-      // 밝기 미리보기용 컬러 필터 매트릭스 구성
-      final b = (brightness * 255).clamp(-255.0, 255.0).toDouble();
-      final brightnessFilter = ColorFilter.matrix(<double>[
-        1, 0, 0, 0, b,
-        0, 1, 0, 0, b,
-        0, 0, 1, 0, b,
-        0, 0, 0, 1, 0,
-      ]);
+    if (!widget.showOriginal) {
+      // ColorFilter 캐싱 로직 - 파라미터가 변경되었을 때만 재생성
+      if (_cachedCombinedFilter == null ||
+          _lastBrightness != widget.brightness ||
+          _lastBrightnessAdjustments != widget.brightnessAdjustments) {
+        _cachedCombinedFilter = _buildCombinedColorFilter(
+          brightness: widget.brightness,
+          brightnessAdjustments: widget.brightnessAdjustments,
+          filter: widget.filter,
+          filterIntensity: widget.filterIntensity,
+          isFiltersInitialized: widget.isFiltersInitialized,
+          lutService: widget.lutService,
+        );
+        _lastBrightness = widget.brightness;
+        _lastBrightnessAdjustments = widget.brightnessAdjustments;
+      }
 
-      // LUT 필터 시스템 (강도 적용)
-      ColorFilter? presetFilter;
-      if (filter != null && isFiltersInitialized && lutService != null) {
-        debugPrint('ImagePreview: Applying LUT filter: $filter (intensity: $filterIntensity)');
-        presetFilter = lutService!.createLutColorFilter(filter!, intensity: filterIntensity);
-        if (presetFilter != null) {
-          debugPrint('ImagePreview: 3D LUT filter applied: $filter');
-        } else {
-          debugPrint('ImagePreview: No matching LUT filter found for: $filter');
+      if (_cachedCombinedFilter != null) {
+        content = ColorFiltered(colorFilter: _cachedCombinedFilter!, child: content);
+      }
+
+      // LUT 필터 캐싱 - 필터 이름이나 강도가 변경되었을 때만 재생성
+      if (widget.filter != null && widget.isFiltersInitialized && widget.lutService != null) {
+        if (_cachedLutFilter == null ||
+            _lastFilterName != widget.filter ||
+            _lastFilterIntensity != widget.filterIntensity) {
+          _cachedLutFilter = widget.lutService!.createLutColorFilter(
+            widget.filter!,
+            intensity: widget.filterIntensity,
+          );
+          _lastFilterName = widget.filter;
+          _lastFilterIntensity = widget.filterIntensity;
+        }
+
+        if (_cachedLutFilter != null) {
+          content = ColorFiltered(colorFilter: _cachedLutFilter!, child: content);
         }
       }
-
-      // BrightnessAdjustments 적용
-      content = _applyBrightnessAdjustments(content, brightnessAdjustments);
-
-      content = ColorFiltered(colorFilter: brightnessFilter, child: content);
-      if (presetFilter != null) {
-        content = ColorFiltered(colorFilter: presetFilter, child: content);
-      }
-      if (flipH) {
+      if (widget.flipH) {
         content = Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()..setEntry(0, 0, -1.0),
@@ -105,11 +126,11 @@ class ImagePreviewWidget extends StatelessWidget {
       content = Transform.rotate(angle: radians, child: content);
 
       // 효과(블러) 적용 미리보기
-      if (blurSigma > 0) {
+      if (widget.blurSigma > 0) {
         content = ImageFiltered(
           imageFilter: ui.ImageFilter.blur(
-            sigmaX: blurSigma,
-            sigmaY: blurSigma,
+            sigmaX: widget.blurSigma,
+            sigmaY: widget.blurSigma,
           ),
           child: content,
         );
@@ -117,7 +138,7 @@ class ImagePreviewWidget extends StatelessWidget {
     }
 
     // 자르기 비율 미리보기 (중앙 크롭 형태)
-    final aspect = switch (crop) {
+    final aspect = switch (widget.crop) {
       CropPreset.original => null,
       CropPreset.freeform => null, // 자유 형식은 비율 제한 없음
       CropPreset.square => 1.0,
@@ -143,35 +164,60 @@ class ImagePreviewWidget extends StatelessWidget {
     );
   }
 
-  Widget _applyBrightnessAdjustments(Widget content, BrightnessAdjustments adj) {
-    Widget result = content;
+  ColorFilter? _buildCombinedColorFilter({
+    required double brightness,
+    required BrightnessAdjustments brightnessAdjustments,
+    required String? filter,
+    required double filterIntensity,
+    required bool isFiltersInitialized,
+    required LutFilterService? lutService,
+  }) {
+    // 기본 identity matrix로 시작
+    List<double> matrix = [
+      1, 0, 0, 0, 0,
+      0, 1, 0, 0, 0,
+      0, 0, 1, 0, 0,
+      0, 0, 0, 1, 0,
+    ];
 
-    // 1. Exposure (노출) - 전체 밝기 조정
+    // 1. 기본 밝기 조정
+    if (brightness != 0.0) {
+      final b = (brightness * 255).clamp(-255.0, 255.0);
+      matrix = _multiplyColorMatrices(matrix, [
+        1, 0, 0, 0, b,
+        0, 1, 0, 0, b,
+        0, 0, 1, 0, b,
+        0, 0, 0, 1, 0,
+      ]);
+    }
+
+    // 2. BrightnessAdjustments의 각 항목 적용
+    final adj = brightnessAdjustments;
+
+    // Exposure
     if (adj.exposure != 0.0) {
       final exposureValue = (adj.exposure * 255).clamp(-255.0, 255.0);
-      final exposureFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, exposureValue,
         0, 1, 0, 0, exposureValue,
         0, 0, 1, 0, exposureValue,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: exposureFilter, child: result);
     }
 
-    // 2. Contrast (대비) - 명암 차이 조정
+    // Contrast
     if (adj.contrast != 0.0) {
       final contrastValue = 1.0 + adj.contrast;
       final intercept = 128 * (1 - contrastValue);
-      final contrastFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         contrastValue, 0, 0, 0, intercept,
         0, contrastValue, 0, 0, intercept,
         0, 0, contrastValue, 0, intercept,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: contrastFilter, child: result);
     }
 
-    // 3. Saturation (채도) - 색 선명도 조정
+    // Saturation
     if (adj.saturation != 0.0) {
       final satValue = 1.0 + adj.saturation;
       final lumR = 0.3086;
@@ -180,79 +226,96 @@ class ImagePreviewWidget extends StatelessWidget {
       final sr = (1 - satValue) * lumR;
       final sg = (1 - satValue) * lumG;
       final sb = (1 - satValue) * lumB;
-      final saturationFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         sr + satValue, sg, sb, 0, 0,
         sr, sg + satValue, sb, 0, 0,
         sr, sg, sb + satValue, 0, 0,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: saturationFilter, child: result);
     }
 
-    // 4. Warmth (따듯함) - 색온도 조정 (빨강↑ 파랑↓)
+    // Warmth
     if (adj.warmth != 0.0) {
       final warmthR = (adj.warmth * 30).clamp(-50.0, 50.0);
       final warmthB = (-adj.warmth * 30).clamp(-50.0, 50.0);
-      final warmthFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, warmthR,
         0, 1, 0, 0, 0,
         0, 0, 1, 0, warmthB,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: warmthFilter, child: result);
     }
 
-    // 5. Highlights (밝은영역) - 밝은 부분 조정 (근사치)
+    // Highlights, Shadows, Whites, Blacks
     if (adj.highlights != 0.0) {
       final highlightAdjust = adj.highlights * 100;
-      final highlightsFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, highlightAdjust * 0.5,
         0, 1, 0, 0, highlightAdjust * 0.5,
         0, 0, 1, 0, highlightAdjust * 0.5,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: highlightsFilter, child: result);
     }
 
-    // 6. Shadows (어두운영역) - 어두운 부분 조정 (근사치)
     if (adj.shadows != 0.0) {
       final shadowAdjust = adj.shadows * 100;
-      final shadowsFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, shadowAdjust * 0.3,
         0, 1, 0, 0, shadowAdjust * 0.3,
         0, 0, 1, 0, shadowAdjust * 0.3,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: shadowsFilter, child: result);
     }
 
-    // 7. Whites (흰색계열) - 매우 밝은 영역 조정 (근사치)
     if (adj.whites != 0.0) {
       final whitesAdjust = adj.whites * 80;
-      final whitesFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, whitesAdjust * 0.6,
         0, 1, 0, 0, whitesAdjust * 0.6,
         0, 0, 1, 0, whitesAdjust * 0.6,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: whitesFilter, child: result);
     }
 
-    // 8. Blacks (검정계열) - 매우 어두운 영역 조정 (근사치)
     if (adj.blacks != 0.0) {
       final blacksAdjust = adj.blacks * 80;
-      final blacksFilter = ColorFilter.matrix(<double>[
+      matrix = _multiplyColorMatrices(matrix, [
         1, 0, 0, 0, blacksAdjust * 0.2,
         0, 1, 0, 0, blacksAdjust * 0.2,
         0, 0, 1, 0, blacksAdjust * 0.2,
         0, 0, 0, 1, 0,
       ]);
-      result = ColorFiltered(colorFilter: blacksFilter, child: result);
     }
 
-    // 참고: sharpness와 noiseReduction은 ColorFilter로 구현하기 어려워서
-    // 미리보기에서는 적용하지 않고, 저장 시에만 적용됩니다.
+    // 3. LUT 필터 적용 (별도로 처리 - 매트릭스 곱으로 통합 불가)
+    // 일단 통합된 brightness adjustment matrix만 반환
+    return ColorFilter.matrix(matrix);
+  }
+
+  // 두 개의 5x4 컬러 매트릭스를 곱하는 헬퍼 함수
+  List<double> _multiplyColorMatrices(List<double> a, List<double> b) {
+    List<double> result = List.filled(20, 0.0);
+
+    for (int row = 0; row < 4; row++) {
+      for (int col = 0; col < 5; col++) {
+        double sum = 0.0;
+        if (col < 4) {
+          // 매트릭스 곱셈
+          for (int k = 0; k < 4; k++) {
+            sum += a[row * 5 + k] * b[k * 5 + col];
+          }
+        } else {
+          // offset 컬럼 (변환 벡터)
+          for (int k = 0; k < 4; k++) {
+            sum += a[row * 5 + k] * b[k * 5 + 4];
+          }
+          sum += a[row * 5 + 4];
+        }
+        result[row * 5 + col] = sum;
+      }
+    }
 
     return result;
   }
+
 }
