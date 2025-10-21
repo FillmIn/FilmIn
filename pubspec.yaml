@@ -41,8 +41,9 @@ flutter:
     - assets/icon/logoBlack.png
     - assets/icon/logoWhite.png
     - assets/images/MainBanner.jpg
-    - assets/filters/xmp/
     - assets/filters/lut/
+    - assets/effects/grain/
+    - assets/effects/dust/
     - assets/svg/light/
     - assets/svg/dark/
     - .env

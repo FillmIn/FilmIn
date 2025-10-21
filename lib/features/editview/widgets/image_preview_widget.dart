@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -8,6 +7,7 @@ import 'package:filmin/services/filters/lut/lut_filter_service.dart';
 
 import 'crop/crop_tool.dart';
 import 'brightness/brightness_tool.dart';
+import 'effect/effect_tool.dart';
 
 class ImagePreviewWidget extends StatefulWidget {
   final String? imagePath;
@@ -15,7 +15,7 @@ class ImagePreviewWidget extends StatefulWidget {
   final bool flipH;
   final double brightness;
   final BrightnessAdjustments brightnessAdjustments;
-  final double blurSigma;
+  final FilmEffects filmEffects;
   final String? filter;
   final double filterIntensity;
   final CropPreset crop;
@@ -30,7 +30,7 @@ class ImagePreviewWidget extends StatefulWidget {
     required this.flipH,
     required this.brightness,
     required this.brightnessAdjustments,
-    required this.blurSigma,
+    required this.filmEffects,
     required this.filter,
     this.filterIntensity = 1.0,
     required this.crop,
@@ -125,14 +125,39 @@ class _ImagePreviewWidgetState extends State<ImagePreviewWidget> {
       }
       content = Transform.rotate(angle: radians, child: content);
 
-      // 효과(블러) 적용 미리보기
-      if (widget.blurSigma > 0) {
-        content = ImageFiltered(
-          imageFilter: ui.ImageFilter.blur(
-            sigmaX: widget.blurSigma,
-            sigmaY: widget.blurSigma,
-          ),
-          child: content,
+      // 그레인 효과 적용
+      if (widget.filmEffects.grainTexture != null && widget.filmEffects.grainIntensity > 0) {
+        content = Stack(
+          fit: StackFit.expand,
+          children: [
+            content,
+            Opacity(
+              opacity: widget.filmEffects.grainIntensity,
+              child: Image.asset(
+                GrainTextures.getAssetPath(widget.filmEffects.grainTexture!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+              ),
+            ),
+          ],
+        );
+      }
+
+      // 더스트 효과 적용
+      if (widget.filmEffects.dustTexture != null && widget.filmEffects.dustIntensity > 0) {
+        content = Stack(
+          fit: StackFit.expand,
+          children: [
+            content,
+            Opacity(
+              opacity: widget.filmEffects.dustIntensity,
+              child: Image.asset(
+                DustTextures.getAssetPath(widget.filmEffects.dustTexture!),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+              ),
+            ),
+          ],
         );
       }
     }

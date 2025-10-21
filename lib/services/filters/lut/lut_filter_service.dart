@@ -87,21 +87,21 @@ class LutFilterService {
     return _lutCache[filterName];
   }
 
-  // 3D LUT 기반 ColorFilter 생성
-  ColorFilter? createLutColorFilter(String filterName) {
+  // 3D LUT 기반 ColorFilter 생성 (intensity 지원)
+  ColorFilter? createLutColorFilter(String filterName, {double intensity = 1.0}) {
     final lut = _lutCache[filterName];
     if (lut == null) {
       debugPrint('❌ LUT filter data not found: $filterName');
       return null;
     }
 
-    debugPrint('🔥 Creating 3D LUT color filter for: $filterName');
+    debugPrint('🔥 Creating 3D LUT color filter for: $filterName (intensity: $intensity)');
 
     // 3D LUT을 ColorMatrix로 근사화
-    return _approximateLutWithColorMatrix(lut, filterName);
+    return _approximateLutWithColorMatrix(lut, filterName, intensity);
   }
 
-  ColorFilter _approximateLutWithColorMatrix(Lut3D lut, String filterName) {
+  ColorFilter _approximateLutWithColorMatrix(Lut3D lut, String filterName, double intensity) {
     // 샘플링을 통한 ColorMatrix 근사화
     // 여러 RGB 입력값에 대해 LUT 출력을 계산하고 최적 매트릭스 추정
 
@@ -120,6 +120,12 @@ class LutFilterService {
 
     // 간단한 선형 변환 추정 (실제로는 더 복잡한 피팅 알고리즘 필요)
     List<double> matrix = _estimateColorMatrix(transformations, filterName);
+
+    // intensity 적용: identity matrix와 블렌드
+    if (intensity < 1.0) {
+      matrix = _blendMatrixWithIdentity(matrix, intensity);
+      debugPrint('🔥 Applied intensity $intensity to color matrix');
+    }
 
     debugPrint('🔥 3D LUT approximated with ColorMatrix for: $filterName');
     return ColorFilter.matrix(matrix);
@@ -236,6 +242,25 @@ class LutFilterService {
       a[1] + (b[1] - a[1]) * t,
       a[2] + (b[2] - a[2]) * t,
     ];
+  }
+
+  // intensity에 따라 필터 매트릭스와 identity 매트릭스를 블렌드
+  List<double> _blendMatrixWithIdentity(List<double> filterMatrix, double intensity) {
+    // Identity matrix (no filter)
+    final identity = [
+      1, 0, 0, 0, 0, // Red
+      0, 1, 0, 0, 0, // Green
+      0, 0, 1, 0, 0, // Blue
+      0, 0, 0, 1, 0, // Alpha
+    ];
+
+    // 블렌드: result = identity * (1 - intensity) + filterMatrix * intensity
+    List<double> result = List<double>.filled(20, 0);
+    for (int i = 0; i < 20; i++) {
+      result[i] = identity[i] * (1.0 - intensity) + filterMatrix[i] * intensity;
+    }
+
+    return result;
   }
 }
 
