@@ -41,7 +41,7 @@ flutter:
     - assets/icon/logoBlack.png
     - assets/icon/logoWhite.png
     - assets/images/MainBanner.jpg
-    - assets/video/demo.mov
+    - assets/gif/demo.gif
     - assets/filters/lut/
     - assets/effects/grain/
     - assets/effects/dust/

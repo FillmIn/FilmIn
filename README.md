@@ -19,7 +19,10 @@
 <br>
 
 ## 🎬 데모영상
-<video controls src="assets/video/demo.mov" title="FilmIn Demo"></video>
+
+<div align="center">
+  <img src="assets/video/demo.gif" alt="FilmIn Demo" width="300">
+</div>
 
 <br>
 
