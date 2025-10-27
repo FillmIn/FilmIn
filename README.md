@@ -21,7 +21,7 @@
 ## 🎬 데모영상
 
 <div align="center">
-  <img src="assets/video/demo.gif" alt="FilmIn Demo" width="300">
+  <img src="assets/gif/demo.gif" alt="FilmIn Demo" width="300">
 </div>
 
 <br>
