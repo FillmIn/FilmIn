@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import '../../services/lut_filter_service.dart';
 
 import 'filter_list_view.dart';
 import 'filter_detail_view.dart';

@@ -98,9 +98,6 @@ firebase_storage_rules_example.txt
 .vscode/settings.json
 .vscode/launch.json
 
-# Test/Example files (프로젝트 루트의 임시 테스트 파일)
-example_usage.dart
-
 # Asset caches and generated files
 *.g.dart
 *.freezed.dart
@@ -133,13 +130,14 @@ android/app/src/main/java/io/flutter/plugins/
 .project
 .metadata
 
-# Web build artifacts
-web/build/
+# Web platform (not used in this project)
+web/
 
-# Shaders compiled output
-shaders/*.frag
-shaders/*.vert
-shaders/compiled/
+# Windows platform (not used in this project)
+windows/
+
+# Shaders (not used in this project)
+shaders/
 
 # Temporary image files
 assets/temp/

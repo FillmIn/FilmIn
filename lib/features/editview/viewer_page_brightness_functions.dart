@@ -1,5 +1,5 @@
 import 'package:image/image.dart' as img;
-import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import 'services/lut_filter_service.dart';
 
 // ========== Isolate 파라미터 클래스들 ==========
 

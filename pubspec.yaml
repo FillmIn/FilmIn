@@ -42,16 +42,12 @@ flutter:
     - assets/icon/logoWhite.png
     - assets/images/MainBanner.jpg
     - assets/gif/demo.gif
-    - assets/filters/lut/
     - assets/effects/grain/
     - assets/effects/dust/
     - assets/effects/halation/
     - assets/svg/light/
     - assets/svg/dark/
     - .env
-
-  shaders:
-    - shaders/xmp_filter.frag
 
 # flutter_launcher_icons 설정
 flutter_launcher_icons:

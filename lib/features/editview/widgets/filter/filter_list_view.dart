@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import '../../services/lut_filter_service.dart';
 import 'package:image/image.dart' as img;
 import 'filter_models.dart';
 
