@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
-import 'package:filmin/features/editview/services/brightness_adjustment_service.dart';
+import 'package:filmin/features/editview/services/brightness_service.dart';
 import 'package:filmin/features/editview/widgets/brightness/brightness_tool.dart';
 
 void main() {
-  group('BrightnessAdjustmentService', () {
-    late BrightnessAdjustmentService service;
+  group('BrightnessService', () {
+    late BrightnessService service;
 
     setUp(() {
-      service = BrightnessAdjustmentService();
+      service = BrightnessService();
     });
 
     // 테스트용 이미지 생성 헬퍼 함수
@@ -27,7 +27,7 @@ void main() {
         final testImage = createTestImage(100, 100);
         final originalPixel = testImage.getPixel(50, 50);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0, // 밝기 변화 없음
           const BrightnessAdjustments(),
@@ -42,7 +42,7 @@ void main() {
       test('양수 밝기를 적용하면 이미지가 밝아져야 함', () {
         final testImage = createTestImage(100, 100, r: 100, g: 100, b: 100);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.5, // 밝기 증가
           const BrightnessAdjustments(),
@@ -55,7 +55,7 @@ void main() {
       test('음수 밝기를 적용하면 이미지가 어두워져야 함', () {
         final testImage = createTestImage(100, 100, r: 150, g: 150, b: 150);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           -0.5, // 밝기 감소
           const BrightnessAdjustments(),
@@ -70,7 +70,7 @@ void main() {
       test('양수 Exposure를 적용하면 이미지가 밝아져야 함', () {
         final testImage = createTestImage(100, 100);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(exposure: 0.5),
@@ -85,7 +85,7 @@ void main() {
       test('양수 Contrast를 적용하면 대비가 증가해야 함', () {
         final testImage = createTestImage(100, 100);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(contrast: 0.5),
@@ -101,7 +101,7 @@ void main() {
       test('양수 Saturation을 적용하면 채도가 증가해야 함', () {
         final testImage = createTestImage(100, 100, r: 200, g: 100, b: 100);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(saturation: 0.5),
@@ -117,7 +117,7 @@ void main() {
       test('양수 Warmth를 적용하면 따뜻한 톤이 되어야 함', () {
         final testImage = createTestImage(100, 100, r: 128, g: 128, b: 128);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(warmth: 0.5),
@@ -132,7 +132,7 @@ void main() {
       test('음수 Warmth를 적용하면 차가운 톤이 되어야 함', () {
         final testImage = createTestImage(100, 100, r: 128, g: 128, b: 128);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(warmth: -0.5),
@@ -149,7 +149,7 @@ void main() {
       test('Highlights 조정은 밝은 영역에만 영향을 주어야 함', () {
         final testImage = createTestImage(100, 100, r: 220, g: 220, b: 220);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(highlights: 0.5),
@@ -163,7 +163,7 @@ void main() {
       test('Shadows 조정은 어두운 영역에만 영향을 주어야 함', () {
         final testImage = createTestImage(100, 100, r: 50, g: 50, b: 50);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(shadows: 0.5),
@@ -179,7 +179,7 @@ void main() {
       test('Whites 조정은 매우 밝은 영역에만 영향을 주어야 함', () {
         final testImage = createTestImage(100, 100, r: 240, g: 240, b: 240);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(whites: 0.5),
@@ -192,7 +192,7 @@ void main() {
       test('Blacks 조정은 매우 어두운 영역에만 영향을 주어야 함', () {
         final testImage = createTestImage(100, 100, r: 30, g: 30, b: 30);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.0,
           const BrightnessAdjustments(blacks: 0.5),
@@ -208,7 +208,7 @@ void main() {
         final testImage = createTestImage(100, 100);
 
         expect(
-          () => service.applyBrightnessAdjustments(
+          () => service.applyQuick(
             testImage,
             0.3,
             const BrightnessAdjustments(
@@ -230,7 +230,7 @@ void main() {
         final testImage = createTestImage(100, 100);
 
         expect(
-          () => service.applyBrightnessAdjustments(
+          () => service.applyQuick(
             testImage,
             1.0,
             const BrightnessAdjustments(
@@ -253,7 +253,7 @@ void main() {
       test('픽셀 값이 0-255 범위를 벗어나지 않아야 함', () {
         final testImage = createTestImage(100, 100, r: 250, g: 250, b: 250);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           1.0, // 최대 밝기
           const BrightnessAdjustments(),
@@ -273,7 +273,7 @@ void main() {
       test('이미지 크기가 변경되지 않아야 함', () {
         final testImage = createTestImage(123, 456);
 
-        final result = service.applyBrightnessAdjustments(
+        final result = service.applyQuick(
           testImage,
           0.5,
           const BrightnessAdjustments(exposure: 0.5),

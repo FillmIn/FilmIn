@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import '../features/editview/services/lut_filter_service.dart';
-import '../features/editview/services/brightness_adjustment_service.dart';
+import '../features/editview/services/brightness_service.dart';
 import '../features/editview/services/film_effects_service.dart';
 import '../features/editview/widgets/brightness/brightness_tool.dart';
 import '../features/editview/widgets/effect/effect_models.dart';
@@ -10,7 +9,7 @@ import '../features/editview/widgets/effect/effect_models.dart';
 /// 서비스 통합 테스트 페이지
 ///
 /// 이 페이지는 다음 서비스들을 테스트합니다:
-/// 1. BrightnessAdjustmentService - 밝기 조정
+/// 1. BrightnessService - 밝기 조정
 /// 2. FilmEffectsService - 그레인, 더스트, 할레이션
 /// 3. LutFilterService - LUT 필터
 class ServiceTestPage extends StatefulWidget {
@@ -22,7 +21,7 @@ class ServiceTestPage extends StatefulWidget {
 
 class _ServiceTestPageState extends State<ServiceTestPage> {
   // 서비스 인스턴스
-  final BrightnessAdjustmentService _brightnessService = BrightnessAdjustmentService();
+  final BrightnessService _brightnessService = BrightnessService();
   final FilmEffectsService _filmEffectsService = FilmEffectsService();
   LutFilterService? _lutService;
 
@@ -89,7 +88,7 @@ class _ServiceTestPageState extends State<ServiceTestPage> {
         blacks: -0.15,
       );
 
-      final result = _brightnessService.applyBrightnessAdjustments(
+      final result = _brightnessService.applyQuick(
         testImage,
         0.2,
         adjustments,
