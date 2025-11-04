@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
-import 'package:filmin/services/filters/lut/lut_filter_service.dart';
+import '../services/lut_filter_service.dart';
 
 import 'crop/crop_tool.dart';
 import 'brightness/brightness_tool.dart';
@@ -125,39 +126,92 @@ class _ImagePreviewWidgetState extends State<ImagePreviewWidget> {
       }
       content = Transform.rotate(angle: radians, child: content);
 
-      // 그레인 효과 적용
+      // 그레인 효과 적용 (사진 위에 정확히 겹침)
       if (widget.filmEffects.grainTexture != null && widget.filmEffects.grainIntensity > 0) {
-        content = Stack(
-          fit: StackFit.expand,
-          children: [
-            content,
-            Opacity(
-              opacity: widget.filmEffects.grainIntensity,
-              child: Image.asset(
-                GrainTextures.getAssetPath(widget.filmEffects.grainTexture!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+        content = ClipRect(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              content,
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: Opacity(
+                    opacity: widget.filmEffects.grainIntensity,
+                    child: Image.asset(
+                      GrainTextures.getAssetPath(widget.filmEffects.grainTexture!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       }
 
-      // 더스트 효과 적용
+      // 더스트 효과 적용 (사진 위에 정확히 겹침)
       if (widget.filmEffects.dustTexture != null && widget.filmEffects.dustIntensity > 0) {
-        content = Stack(
-          fit: StackFit.expand,
-          children: [
-            content,
-            Opacity(
-              opacity: widget.filmEffects.dustIntensity,
-              child: Image.asset(
-                DustTextures.getAssetPath(widget.filmEffects.dustTexture!),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+        content = ClipRect(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              content,
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: Opacity(
+                    opacity: widget.filmEffects.dustIntensity,
+                    child: Image.asset(
+                      DustTextures.getAssetPath(widget.filmEffects.dustTexture!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+        );
+      }
+
+      // 할레이션 효과 적용 (가우시안 블러 - 흰색 부분만 번짐)
+      if (widget.filmEffects.halationTexture != null && widget.filmEffects.halationIntensity > 0) {
+        final blurSigma = 25.0 * widget.filmEffects.halationIntensity;
+
+        content = ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              content,
+              // 할레이션 글로우 레이어 (가우시안 블러)
+              Positioned.fill(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                    tileMode: TileMode.decal,
+                  ),
+                  child: ColorFiltered(
+                    // 흰색 부분만 추출 (RGB 210 이상)
+                    colorFilter: const ColorFilter.matrix([
+                      1, 0, 0, 0, -210,  // R: 210 이하 제거
+                      0, 1, 0, 0, -210,  // G: 210 이하 제거
+                      0, 0, 1, 0, -210,  // B: 210 이하 제거
+                      0, 0, 0, 1, 0,     // A: 유지
+                    ]),
+                    child: Opacity(
+                      opacity: widget.filmEffects.halationIntensity * 0.7,
+                      child: content,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       }
     }

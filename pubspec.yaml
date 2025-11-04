@@ -45,6 +45,7 @@ flutter:
     - assets/effects/grain/
     - assets/effects/dust/
     - assets/effects/halation/
+    - assets/filters/lut/
     - assets/svg/light/
     - assets/svg/dark/
     - .env
