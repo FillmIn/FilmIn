@@ -64,9 +64,16 @@ class _OnboardingPreviewCarouselState extends State<OnboardingPreviewCarousel> {
 }
 
 class OnboardingPreviewCard extends StatelessWidget {
-  const OnboardingPreviewCard({super.key, required this.src});
+  const OnboardingPreviewCard({
+    super.key,
+    required this.src,
+    this.overlayColor,
+    this.isOverlay = false,
+  });
 
   final String src;
+  final Color? overlayColor;
+  final bool isOverlay;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +84,9 @@ class OnboardingPreviewCard extends StatelessWidget {
     );
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
+      margin: isOverlay
+          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+          : const EdgeInsets.symmetric(horizontal: 9, vertical: 10),
       decoration: BoxDecoration(
         border: border,
         boxShadow: [
@@ -91,9 +100,15 @@ class OnboardingPreviewCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: AspectRatio(
         aspectRatio: 4 / 5,
-        child: isUrl
-            ? Image.network(src, fit: BoxFit.cover)
-            : Image.asset(src, fit: BoxFit.cover),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            isUrl
+                ? Image.network(src, fit: BoxFit.cover)
+                : Image.asset(src, fit: BoxFit.cover),
+            if (overlayColor != null) ColoredBox(color: overlayColor!),
+          ],
+        ),
       ),
     );
   }
@@ -103,20 +118,17 @@ class OnboardingOverlayBackdrop extends StatelessWidget {
   const OnboardingOverlayBackdrop({
     super.key,
     required this.src,
-    this.opacity = 0.2,
+    this.opacity = 0.5,
+    this.backgroundColor = Colors.black,
   });
 
-  final String src;
+  final String src; // kept for API compatibility
   final double opacity;
+  final Color backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    final isUrl = src.startsWith('http://') || src.startsWith('https://');
-    final image = isUrl
-        ? Image.network(src, fit: BoxFit.cover)
-        : Image.asset(src, fit: BoxFit.cover);
-
-    return Opacity(opacity: opacity, child: image);
+    return ColoredBox(color: backgroundColor.withValues(alpha: opacity));
   }
 }
 
@@ -144,7 +156,7 @@ class _OnboardingOverlayCarouselState extends State<OnboardingOverlayCarousel> {
   void initState() {
     super.initState();
     _controller = PageController(
-      viewportFraction: 0.9,
+      viewportFraction: 1.0,
       initialPage: widget.initialIndex,
     );
   }
@@ -165,25 +177,9 @@ class _OnboardingOverlayCarouselState extends State<OnboardingOverlayCarousel> {
             itemCount: widget.items.length,
             onPageChanged: widget.onPageChanged,
             itemBuilder: (context, index) {
-              return AnimatedBuilder(
-                animation: _controller,
-                builder: (context, child) {
-                  double value = 0;
-                  if (_controller.position.haveDimensions) {
-                    value = _controller.page! - index;
-                  } else {
-                    value = (_controller.initialPage - index).toDouble();
-                  }
-                  final translate = value * -24;
-                  final scale = (1 - value.abs() * 0.12).clamp(0.88, 1.0);
-                  return Transform.translate(
-                    offset: Offset(translate, 0),
-                    child: Transform.scale(
-                      scale: scale,
-                      child: OnboardingPreviewCard(src: widget.items[index]),
-                    ),
-                  );
-                },
+              return OnboardingPreviewCard(
+                src: widget.items[index],
+                isOverlay: true,
               );
             },
           ),
